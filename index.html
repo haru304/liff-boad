@@ -57,7 +57,6 @@
                     <div class="flex-1 text-center font-bold text-base text-gray-800" id="master-day-label">月曜日</div>
                     <button onclick="changeMasterDay(1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-2 py-1 font-bold text-base transition">▶</button>
                 </div>
-                <!-- 曜日直接タップボタン -->
                 <div class="flex gap-1">
                     <button onclick="jumpMasterDay(0)" id="day-btn-0" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition border">月</button>
                     <button onclick="jumpMasterDay(1)" id="day-btn-1" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition border">火</button>
@@ -70,9 +69,7 @@
             </div>
 
             <!-- 時間別カウンター（マスター用） -->
-            <div id="master-counter" class="bg-white rounded-xl shadow-sm border-t-4 border-purple-500 p-3 mb-3 overflow-x-auto">
-                <div class="flex"></div>
-            </div>
+            <div id="master-counter" class="bg-white rounded-xl shadow-sm border-t-4 border-purple-500 p-3 mb-3 overflow-x-auto"></div>
 
             <p class="text-xs text-center text-gray-400 font-bold mb-3">※基本シフトを編集します（パスワード必要）</p>
 
@@ -105,12 +102,11 @@ const DAYS = ['月','火','水','木','金','土','日'];
 let masterDayIndex = 0;
 let allMasterData = [];
 
-// ---- 初期化 ----
 (function init() {
     const today = new Date();
     document.getElementById('date-picker').value = toInputDate(today);
     updateDateLabel(today);
-    masterDayIndex = (today.getDay() + 6) % 7; // getDay(): 0=日 → index: 6=日
+    masterDayIndex = (today.getDay() + 6) % 7;
 })();
 
 function toInputDate(d) {
@@ -152,7 +148,12 @@ function getCurrentGasDate() {
     return toGasDate(getSelectedDate());
 }
 
-// ---- タブ切り替え ----
+// "9-18" 形式のみ有効。日付文字列などが混入していたら空文字を返す
+function sanitizeTime(val) {
+    const s = String(val || '').trim();
+    return /^\d{1,2}-\d{1,2}$/.test(s) ? s : '';
+}
+
 function switchTab(tab) {
     document.getElementById('view-today').classList.toggle('hidden', tab !== 'today');
     document.getElementById('view-master').classList.toggle('hidden', tab !== 'master');
@@ -169,7 +170,6 @@ function switchTab(tab) {
     if (tab === 'today') loadToday();
 }
 
-// ---- 認証 ----
 async function unlockMaster() {
     const pass = document.getElementById('admin-pass').value;
     if (!pass) return;
@@ -191,78 +191,95 @@ async function unlockMaster() {
     } catch (e) { alert("通信エラー"); btn.innerText = "ロック解除"; btn.disabled = false; }
 }
 
-// ---- 時間別カウンター描画（共通） ----
-function buildCounter(data, highlightColor) {
+// 時間別カウンター（共通）
+function buildCounter(data, color) {
     const hours = Array(15).fill(0);
     data.forEach(s => {
-        if (!s.time || !s.name || s.name === 'なし' || s.name === '未定') return;
-        const [st, en] = s.time.split('-').map(Number);
+        const t = sanitizeTime(s.time);
+        if (!t || !s.name || s.name === 'なし' || s.name === '未定') return;
+        const [st, en] = t.split('-').map(Number);
         if (st && en) for (let i = st; i < en; i++) if (i >= 9 && i <= 23) hours[i - 9]++;
     });
-    return `<div class="flex">` + hours.map((n, i) => `
-        <div class="flex flex-col items-center px-1" style="min-width:28px">
-            <div class="text-xs text-gray-400 mb-1">${i + 9}</div>
-            <div class="text-sm font-bold ${n === 0 ? 'text-red-500' : highlightColor}">${n}</div>
+    return '<div style="display:flex">' + hours.map((n, i) => `
+        <div style="display:flex;flex-direction:column;align-items:center;min-width:36px;padding:0 2px">
+            <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">${i + 9}</div>
+            <div style="font-size:18px;font-weight:700;color:${n === 0 ? '#ef4444' : color}">${n}</div>
         </div>
-    `).join('') + `</div>`;
+    `).join('') + '</div>';
 }
 
-// ---- 今日のシフト読み込み ----
 async function loadToday() {
     const d = getSelectedDate();
     updateDateLabel(d);
     const gasDate = toGasDate(d);
-
     const list = document.getElementById('shift-list');
     const counter = document.getElementById('counter');
     list.innerHTML = '';
-    counter.innerHTML = '<div class="text-xs text-gray-400 text-center">読み込み中...</div>';
+    counter.innerHTML = '<div style="font-size:12px;color:#9ca3af;text-align:center">読み込み中...</div>';
 
     try {
         const res = await fetch(GAS_URL + '?date=' + gasDate);
         const data = await res.json();
 
-        counter.innerHTML = buildCounter(data, 'text-blue-600');
+        counter.innerHTML = buildCounter(data, '#2563eb');
 
         if (data.length === 0) {
             list.innerHTML = '<div class="text-center text-gray-400 text-sm py-6">この日のシフトはありません</div>';
         }
 
         data.forEach(s => {
+            const time = sanitizeTime(s.time);
             const card = document.createElement('div');
             const badge = s.isTodayOnly
-                ? '<span class="text-xs bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full mr-2">追加枠</span>'
+                ? '<span style="font-size:11px;background:#dcfce7;color:#15803d;font-weight:700;padding:2px 8px;border-radius:99px">追加枠</span>'
                 : s.isChanged
-                ? '<span class="text-xs bg-yellow-100 text-yellow-700 font-bold px-2 py-0.5 rounded-full mr-2">変更済</span>'
-                : '';
+                ? '<span style="font-size:11px;background:#fef9c3;color:#a16207;font-weight:700;padding:2px 8px;border-radius:99px">変更済</span>'
+                : '<span style="font-size:11px;background:#f3f4f6;color:#9ca3af;padding:2px 8px;border-radius:99px">固定</span>';
+
             card.className = `bg-white rounded-xl shadow-sm border p-4 ${s.isTodayOnly ? 'border-green-300' : s.isChanged ? 'border-yellow-300' : 'border-gray-200'}`;
             card.innerHTML = `
-                <div class="flex items-center mb-3">${badge}<span class="text-xs text-gray-400">ID: ${s.id}</span></div>
-                <div class="flex gap-2 mb-3">
-                    <input type="text" value="${s.time}" class="w-20 border border-gray-300 rounded-lg p-2 text-sm font-bold text-center time-input" placeholder="9-18">
-                    <input type="text" value="${s.name}" class="flex-1 border border-gray-300 rounded-lg p-2 text-sm font-bold name-input" placeholder="名前">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                    ${badge}
+                    <span style="font-size:11px;color:#d1d5db">ID: ${s.id}</span>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="updateDaily('${s.id}', this)" class="flex-1 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition shadow-sm">
+                <div style="margin-bottom:8px">
+                    <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">時間</div>
+                    <input type="text" value="${time}" class="time-input"
+                        style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:18px;font-weight:700;text-align:center;box-sizing:border-box"
+                        placeholder="例: 9-18">
+                </div>
+                <div style="margin-bottom:12px">
+                    <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">名前</div>
+                    <input type="text" value="${s.name}" class="name-input"
+                        style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:16px;font-weight:700;box-sizing:border-box"
+                        placeholder="名前">
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button onclick="updateDaily('${s.id}', this)"
+                        style="flex:1;background:#2563eb;color:white;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:700;cursor:pointer">
                         ${s.isChanged ? '上書き変更' : '変更する'}
                     </button>
-                    <button onclick="deleteDaily('${s.id}', this)" class="text-sm bg-red-50 hover:bg-red-100 text-red-500 font-bold px-4 py-2 rounded-lg border border-red-200 transition" title="削除">🗑</button>
+                    <button onclick="deleteDaily('${s.id}', this)"
+                        style="background:#fef2f2;color:#ef4444;border:1px solid #fca5a5;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer">
+                        🗑
+                    </button>
                 </div>
             `;
             list.appendChild(card);
         });
 
         const addBtn = document.createElement('div');
-        addBtn.className = 'mt-4';
+        addBtn.style.marginTop = '16px';
         addBtn.innerHTML = `
-            <button onclick="addTodaySlot()" class="w-full text-sm font-bold text-green-700 bg-green-50 border-2 border-dashed border-green-400 hover:bg-green-100 py-3 rounded-xl transition">
-                ＋ 枠を追加
+            <button onclick="addTodaySlot()"
+                style="width:100%;font-size:14px;font-weight:700;color:#15803d;background:#f0fdf4;border:2px dashed #4ade80;border-radius:12px;padding:12px;cursor:pointer">
+                ＋ 枠を追加（分割・応援など）
             </button>
         `;
         list.appendChild(addBtn);
 
     } catch (e) {
-        counter.innerHTML = '<div class="text-red-500 text-xs text-center">読み込みエラー。再度お試しください。</div>';
+        counter.innerHTML = '<div style="color:#ef4444;font-size:12px;text-align:center">読み込みエラー。再度お試しください。</div>';
     }
 }
 
@@ -289,7 +306,7 @@ async function updateDaily(id, btn) {
     const time = card.querySelector('.time-input').value;
     const name = card.querySelector('.name-input').value;
     btn.disabled = true; btn.innerText = '送信中...';
-    btn.classList.replace('bg-blue-600', 'bg-gray-400');
+    btn.style.background = '#9ca3af';
     await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ type: 'daily', id, time, name, date: getCurrentGasDate() }) });
     loadToday();
 }
@@ -300,7 +317,6 @@ function changeMasterDay(delta) {
     renderMasterDay();
 }
 
-// ★ 追加：曜日ボタン直接ジャンプ
 function jumpMasterDay(index) {
     masterDayIndex = index;
     renderMasterDay();
@@ -318,13 +334,11 @@ function renderMasterDay() {
     const day = DAYS[masterDayIndex];
     document.getElementById('master-day-label').textContent = `${day}曜日`;
 
-    // ★ 曜日ボタンのハイライト更新
     DAYS.forEach((_, i) => {
         const btn = document.getElementById(`day-btn-${i}`);
         if (!btn) return;
         const isSel = i === masterDayIndex;
-        const isSat = i === 5;
-        const isSun = i === 6;
+        const isSat = i === 5, isSun = i === 6;
         if (isSel) {
             btn.className = 'flex-1 py-1.5 rounded-lg text-xs font-bold transition border bg-blue-600 text-white border-blue-600';
         } else if (isSun) {
@@ -337,9 +351,7 @@ function renderMasterDay() {
     });
 
     const dayData = allMasterData.filter(d => d.day === day);
-
-    // カウンター更新
-    document.getElementById('master-counter').innerHTML = buildCounter(dayData, 'text-purple-600');
+    document.getElementById('master-counter').innerHTML = buildCounter(dayData, '#7c3aed');
 
     const list = document.getElementById('master-list');
     if (dayData.length === 0) {
@@ -347,16 +359,22 @@ function renderMasterDay() {
         return;
     }
 
-    list.innerHTML = dayData.map(d => `
+    list.innerHTML = dayData.map(d => {
+        const t = sanitizeTime(d.time);
+        return `
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
             <div class="flex gap-2 items-center">
                 <span class="text-xs text-gray-400 w-5 text-center shrink-0">${d.id}</span>
-                <input type="text" value="${d.time}" class="w-16 border border-gray-300 rounded-lg text-sm p-2 text-center m-time">
-                <input type="text" value="${d.name}" class="flex-1 border border-gray-300 rounded-lg text-sm p-2 m-name">
-                <button onclick="updateMaster('${d.row}', this)" class="bg-gray-700 text-white px-3 py-2 rounded-lg text-xs font-bold shadow hover:bg-gray-800 whitespace-nowrap shrink-0">保存</button>
+                <input type="text" value="${t}" class="m-time"
+                    style="width:72px;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:14px;font-weight:700;text-align:center"
+                    placeholder="9-18">
+                <input type="text" value="${d.name}" class="m-name"
+                    style="flex:1;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:14px;font-weight:700">
+                <button onclick="updateMaster('${d.row}', this)"
+                    style="background:#374151;color:white;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">保存</button>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 async function addMasterSlotCurrent() {
@@ -382,11 +400,10 @@ async function updateMaster(row, btn) {
     if (text === 'auth_error') { alert('セッション切れです。再読み込みしてください。'); location.reload(); return; }
     const idx = allMasterData.findIndex(d => String(d.row) === String(row));
     if (idx >= 0) { allMasterData[idx].time = time; allMasterData[idx].name = name; }
-    btn.innerText = '完了!'; btn.classList.replace('bg-gray-700', 'bg-green-600');
-    setTimeout(() => { btn.innerText = orig; btn.classList.replace('bg-green-600', 'bg-gray-700'); btn.disabled = false; }, 1500);
+    btn.innerText = '完了!'; btn.style.background = '#16a34a';
+    setTimeout(() => { btn.innerText = orig; btn.style.background = '#374151'; btn.disabled = false; }, 1500);
 }
 
-// 起動
 loadToday();
 </script>
 </body>
