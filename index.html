@@ -32,7 +32,7 @@
             </div>
 
             <div id="master-content" class="hidden">
-                <p class="text-xs text-center text-gray-500 font-bold mb-4">※各曜日の基本シフトを編集します</p>
+                <p class="text-xs text-center text-gray-500 font-bold mb-4">※各曜日の基本シフトを編集・追加します</p>
                 <div id="master-list" class="space-y-4"></div>
             </div>
         </div>
@@ -49,7 +49,7 @@
 
     <script>
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbx4uxrzu43hC88wXre40o6WuJX5mmuRiuZbdQaNA16gEbW8Db-436akuhIOYFnJOTvt/exec';
-        let savedAdminPass = ""; // 認証成功時にパスワードを保持する変数
+        let savedAdminPass = ""; 
 
         function switchTab(tab) {
             document.getElementById('view-today').classList.toggle('hidden', tab !== 'today');
@@ -59,18 +59,15 @@
             
             if(tab === 'master') {
                 if(savedAdminPass === "") {
-                    // まだ認証していなければロック画面を表示
                     document.getElementById('auth-screen').classList.remove('hidden');
                     document.getElementById('master-content').classList.add('hidden');
                 } else {
-                    // 認証済みならリスト更新
                     loadMaster();
                 }
             }
             if(tab === 'today') loadToday();
         }
 
-        // 【追加】パスワードを照合してロックを解除する
         async function unlockMaster() {
             const passInput = document.getElementById('admin-pass').value;
             const btn = document.getElementById('auth-btn');
@@ -90,11 +87,11 @@
                 const text = await res.text();
 
                 if (text === "success") {
-                    savedAdminPass = passInput; // パスワードを保持
+                    savedAdminPass = passInput;
                     document.getElementById('auth-screen').classList.add('hidden');
                     document.getElementById('master-content').classList.remove('hidden');
-                    document.getElementById('admin-pass').value = ""; // 入力欄クリア
-                    loadMaster(); // ロック解除してリスト読み込み
+                    document.getElementById('admin-pass').value = "";
+                    loadMaster(); 
                 } else {
                     errorMsg.classList.remove('hidden');
                     btn.innerText = "ロック解除";
@@ -158,8 +155,8 @@
             const days = ['月', '火', '水', '木', '金', '土', '日'];
             list.innerHTML = days.map(day => `
                 <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                    <h2 class="font-bold border-b-2 border-blue-500 pb-1 mb-3 text-gray-800">${day}曜日</h2>
-                    <div class="space-y-3">
+                    <h2 class="font-bold border-b-2 border-blue-500 pb-2 mb-3 text-gray-800">${day}曜日</h2>
+                    <div class="space-y-3 mb-3">
                         ${data.filter(d => d.day === day).map(d => `
                             <div class="flex gap-2 items-center">
                                 <span class="text-xs text-gray-400 w-4">${d.id}</span>
@@ -169,8 +166,37 @@
                             </div>
                         `).join('')}
                     </div>
+                    <div class="text-right border-t pt-2">
+                        <button onclick="addMasterSlot('${day}', this)" class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded border border-blue-200 hover:bg-blue-100 transition">
+                            ＋ ${day}曜日に枠を追加
+                        </button>
+                    </div>
                 </div>
             `).join('');
+        }
+
+        // 【追加】新しい枠を追記する関数
+        async function addMasterSlot(day, btn) {
+            const time = prompt(`${day}曜日の新しい枠の時間を入力してください\n例: 9-18`, "9-18");
+            if(!time) return;
+            const name = prompt(`担当者名を入力してください\n※決まっていなければ「未定」など`, "未定");
+            if(!name) return;
+
+            btn.innerText = "追加中...";
+            btn.disabled = true;
+
+            const res = await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ type: 'addMaster', day: day, time: time, name: name, pass: savedAdminPass })
+            });
+            const text = await res.text();
+
+            if(text === "auth_error") {
+                alert("セッション切れです。再読み込みしてください。");
+                location.reload();
+            } else {
+                loadMaster(); // 追加成功したらリストを再描画
+            }
         }
 
         async function updateDaily(id, btn) {
@@ -186,7 +212,6 @@
             location.reload(); 
         }
 
-        // 保存時に、保持している savedAdminPass を自動で使う
         async function updateMaster(row, btn) {
             const container = btn.parentElement;
             const time = container.querySelector('.m-time').value;
@@ -206,14 +231,13 @@
                 alert("セッション切れです。再読み込みしてください。");
                 location.reload();
             } else {
-                // 保存完了したらボタンを緑色にするなどのフィードバック
                 btn.innerText = "完了!";
                 btn.classList.replace('bg-gray-700', 'bg-green-500');
                 setTimeout(() => {
                     btn.innerText = originalText;
                     btn.classList.replace('bg-green-500', 'bg-gray-700');
                     btn.disabled = false;
-                }, 2000);
+                }, 1500);
             }
         }
 
