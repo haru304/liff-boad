@@ -13,49 +13,39 @@
 <body class="bg-gray-100 pb-24">
 <div class="max-w-md mx-auto p-4">
 
-    <!-- ========== 今日のシフト画面 ========== -->
     <div id="view-today">
-
-        <!-- 日付ナビ -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3 flex items-center gap-1">
-            <button onclick="changeDate(-1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">◀</button>
+            <button onclick="changeDate(-1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">&#9664;</button>
             <div class="flex-1 text-center">
                 <input type="date" id="date-picker" class="text-sm font-bold text-gray-700 text-center bg-transparent border-none outline-none cursor-pointer w-full" onchange="loadToday()">
                 <div id="date-label" class="text-xs text-gray-400 mt-0.5"></div>
             </div>
-            <button onclick="changeDate(1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">▶</button>
+            <button onclick="changeDate(1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">&#9654;</button>
         </div>
 
-        <!-- 時間別カウンター -->
         <div id="counter" class="bg-white rounded-xl shadow-sm border-t-4 border-blue-500 p-3 mb-4 overflow-x-auto">
             <div class="text-center text-gray-400 text-xs">読み込み中...</div>
         </div>
 
-        <!-- シフト一覧 -->
         <div id="shift-list" class="space-y-3"></div>
     </div>
 
-    <!-- ========== 固定シフト画面 ========== -->
     <div id="view-master" class="hidden">
         <h1 class="text-xl font-bold mb-3 text-center text-gray-800">固定シフト設定</h1>
 
-        <!-- 認証画面 -->
         <div id="auth-screen" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-center mt-8">
-            <p class="text-sm font-bold text-gray-700 mb-4">🔐 管理者パスワード</p>
+            <p class="text-sm font-bold text-gray-700 mb-4">&#128272; 管理者パスワード</p>
             <input type="password" id="admin-pass" class="border border-gray-300 p-2 rounded-lg w-full mb-4 text-center text-lg" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')unlockMaster()">
             <button onclick="unlockMaster()" id="auth-btn" class="bg-gray-800 hover:bg-gray-900 text-white px-6 py-2 rounded-lg font-bold w-full transition shadow">ロック解除</button>
             <p id="auth-error" class="text-red-500 text-xs mt-3 hidden font-bold">パスワードが違います</p>
         </div>
 
-        <!-- マスターコンテンツ -->
         <div id="master-content" class="hidden">
-
-            <!-- 曜日ナビ -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3">
                 <div class="flex items-center mb-2">
-                    <button onclick="changeMasterDay(-1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-2 py-1 font-bold text-base transition">◀</button>
+                    <button onclick="changeMasterDay(-1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-2 py-1 font-bold text-base transition">&#9664;</button>
                     <div class="flex-1 text-center font-bold text-base text-gray-800" id="master-day-label">月曜日</div>
-                    <button onclick="changeMasterDay(1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-2 py-1 font-bold text-base transition">▶</button>
+                    <button onclick="changeMasterDay(1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-2 py-1 font-bold text-base transition">&#9654;</button>
                 </div>
                 <div class="flex gap-1">
                     <button onclick="jumpMasterDay(0)" id="day-btn-0" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition border">月</button>
@@ -68,15 +58,12 @@
                 </div>
             </div>
 
-            <!-- 時間別カウンター（マスター用） -->
             <div id="master-counter" class="bg-white rounded-xl shadow-sm border-t-4 border-purple-500 p-3 mb-3 overflow-x-auto"></div>
 
             <p class="text-xs text-center text-gray-400 font-bold mb-3">※基本シフトを編集します（パスワード必要）</p>
 
-            <!-- マスターリスト -->
             <div id="master-list" class="space-y-2"></div>
 
-            <!-- 追加ボタン -->
             <button onclick="addMasterSlotCurrent()" class="mt-3 w-full text-sm font-bold text-blue-600 bg-blue-50 border-2 border-dashed border-blue-300 hover:bg-blue-100 py-3 rounded-xl transition">
                 ＋ この曜日に枠を追加
             </button>
@@ -85,13 +72,12 @@
 
 </div>
 
-<!-- タブバー -->
 <div class="fixed bottom-0 left-0 right-0 bg-gray-200 flex border-t border-gray-300 h-16 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
     <button onclick="switchTab('today')" id="tab-today" class="flex-1 flex flex-col items-center justify-center text-gray-500 active-tab font-bold">
-        <span class="text-xl">📅</span><span class="text-xs mt-1">シフト確認</span>
+        <span class="text-xl">&#128197;</span><span class="text-xs mt-1">シフト確認</span>
     </button>
     <button onclick="switchTab('master')" id="tab-master" class="flex-1 flex flex-col items-center justify-center text-gray-500 font-bold">
-        <span class="text-xl">⚙️</span><span class="text-xs mt-1">固定設定</span>
+        <span class="text-xl">&#9881;&#65039;</span><span class="text-xs mt-1">固定設定</span>
     </button>
 </div>
 
@@ -123,17 +109,17 @@ function toGasDate(d) {
 
 function updateDateLabel(d) {
     const dayNames = ['日','月','火','水','木','金','土'];
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const target = new Date(d); target.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const target = new Date(d); target.setHours(0,0,0,0);
     const diff = Math.round((target - today) / 86400000);
     const suffix = diff === 0 ? '（今日）' : diff === 1 ? '（明日）' : diff === -1 ? '（昨日）' : '';
     document.getElementById('date-label').textContent =
-        `${d.getMonth() + 1}月${d.getDate()}日（${dayNames[d.getDay()]}）${suffix}`;
+        `${d.getMonth()+1}月${d.getDate()}日（${dayNames[d.getDay()]}）${suffix}`;
 }
 
 function getSelectedDate() {
-    const [y, m, d] = document.getElementById('date-picker').value.split('-').map(Number);
-    return new Date(y, m - 1, d);
+    const [y,m,d] = document.getElementById('date-picker').value.split('-').map(Number);
+    return new Date(y, m-1, d);
 }
 
 function changeDate(delta) {
@@ -148,10 +134,46 @@ function getCurrentGasDate() {
     return toGasDate(getSelectedDate());
 }
 
-// "9-18" 形式のみ有効。日付文字列などが混入していたら空文字を返す
+// "9-18" "9:30-18" "9-18:30" "9:30-18:30" すべて有効
 function sanitizeTime(val) {
     const s = String(val || '').trim();
-    return /^\d{1,2}-\d{1,2}$/.test(s) ? s : '';
+    return /^\d{1,2}(:\d{2})?-\d{1,2}(:\d{2})?$/.test(s) ? s : '';
+}
+
+// "9:30" -> 9.5 のように時刻を小数に変換
+function parseHour(str) {
+    if (!str) return NaN;
+    const parts = str.split(':');
+    const h = Number(parts[0]);
+    const m = parts[1] ? Number(parts[1]) : 0;
+    return h + m / 60;
+}
+
+// 30分刻みのカウンター（表示は1時間ラベル）
+function buildCounter(data, color) {
+    const slots = Array(28).fill(0); // 9:00〜23:00 を30分刻み28コマ
+    data.forEach(s => {
+        const t = sanitizeTime(s.time);
+        if (!t || !s.name || s.name === 'なし' || s.name === '未定') return;
+        const [startStr, endStr] = t.split('-');
+        const st = parseHour(startStr);
+        const en = parseHour(endStr);
+        if (isNaN(st) || isNaN(en)) return;
+        for (let slot = 0; slot < slots.length; slot++) {
+            const slotStart = 9 + slot * 0.5;
+            if (slotStart >= st && slotStart < en) slots[slot]++;
+        }
+    });
+
+    return '<div style="display:flex">' + slots.map((n, i) => {
+        const hour = 9 + i * 0.5;
+        const isHour = Number.isInteger(hour);
+        const label = isHour ? String(Math.round(hour)) : '';
+        return `<div style="display:flex;flex-direction:column;align-items:center;min-width:${isHour ? 34 : 17}px;padding:0 1px">
+            <div style="font-size:11px;color:#9ca3af;margin-bottom:4px;min-height:16px">${label}</div>
+            <div style="font-size:${isHour ? 17 : 12}px;font-weight:700;color:${n===0?'#ef4444':color}">${n}</div>
+        </div>`;
+    }).join('') + '</div>';
 }
 
 function switchTab(tab) {
@@ -177,7 +199,7 @@ async function unlockMaster() {
     const err = document.getElementById('auth-error');
     btn.innerText = "確認中..."; btn.disabled = true; err.classList.add('hidden');
     try {
-        const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ type: 'verify', pass }) });
+        const res = await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'verify', pass}) });
         if (await res.text() === "success") {
             savedAdminPass = pass;
             document.getElementById('auth-screen').classList.add('hidden');
@@ -188,24 +210,7 @@ async function unlockMaster() {
             err.classList.remove('hidden');
             btn.innerText = "ロック解除"; btn.disabled = false;
         }
-    } catch (e) { alert("通信エラー"); btn.innerText = "ロック解除"; btn.disabled = false; }
-}
-
-// 時間別カウンター（共通）
-function buildCounter(data, color) {
-    const hours = Array(15).fill(0);
-    data.forEach(s => {
-        const t = sanitizeTime(s.time);
-        if (!t || !s.name || s.name === 'なし' || s.name === '未定') return;
-        const [st, en] = t.split('-').map(Number);
-        if (st && en) for (let i = st; i < en; i++) if (i >= 9 && i <= 23) hours[i - 9]++;
-    });
-    return '<div style="display:flex">' + hours.map((n, i) => `
-        <div style="display:flex;flex-direction:column;align-items:center;min-width:36px;padding:0 2px">
-            <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">${i + 9}</div>
-            <div style="font-size:18px;font-weight:700;color:${n === 0 ? '#ef4444' : color}">${n}</div>
-        </div>
-    `).join('') + '</div>';
+    } catch(e) { alert("通信エラー"); btn.innerText = "ロック解除"; btn.disabled = false; }
 }
 
 async function loadToday() {
@@ -246,7 +251,7 @@ async function loadToday() {
                     <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">時間</div>
                     <input type="text" value="${time}" class="time-input"
                         style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:18px;font-weight:700;text-align:center;box-sizing:border-box"
-                        placeholder="例: 9-18">
+                        placeholder="例: 9-18 や 9:30-18:00">
                 </div>
                 <div style="margin-bottom:12px">
                     <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">名前</div>
@@ -261,7 +266,7 @@ async function loadToday() {
                     </button>
                     <button onclick="deleteDaily('${s.id}', this)"
                         style="background:#fef2f2;color:#ef4444;border:1px solid #fca5a5;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer">
-                        🗑
+                        &#128465;
                     </button>
                 </div>
             `;
@@ -278,17 +283,17 @@ async function loadToday() {
         `;
         list.appendChild(addBtn);
 
-    } catch (e) {
+    } catch(e) {
         counter.innerHTML = '<div style="color:#ef4444;font-size:12px;text-align:center">読み込みエラー。再度お試しください。</div>';
     }
 }
 
 async function addTodaySlot() {
-    const time = prompt('新しい枠の時間を入力してください\n例: 9-18 や 13-17', '9-18');
+    const time = prompt('新しい枠の時間を入力してください\n例: 9-18 や 9:30-17:30', '9-18');
     if (time === null) return;
     const name = prompt('担当者名を入力してください', '');
     if (name === null) return;
-    await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ type: 'addDaily', time, name, date: getCurrentGasDate() }) });
+    await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'addDaily', time, name, date: getCurrentGasDate()}) });
     loadToday();
 }
 
@@ -296,7 +301,7 @@ async function deleteDaily(id, btn) {
     if (!confirm('この枠を削除しますか？\n（固定シフトは翌日から元に戻ります）')) return;
     const card = btn.closest('.rounded-xl');
     btn.disabled = true; btn.innerText = '削除中...';
-    await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ type: 'deleteDaily', id, date: getCurrentGasDate() }) });
+    await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'deleteDaily', id, date: getCurrentGasDate()}) });
     card.style.opacity = '0.3';
     setTimeout(() => loadToday(), 700);
 }
@@ -307,11 +312,10 @@ async function updateDaily(id, btn) {
     const name = card.querySelector('.name-input').value;
     btn.disabled = true; btn.innerText = '送信中...';
     btn.style.background = '#9ca3af';
-    await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ type: 'daily', id, time, name, date: getCurrentGasDate() }) });
+    await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'daily', id, time, name, date: getCurrentGasDate()}) });
     loadToday();
 }
 
-// ---- 固定シフト（マスター） ----
 function changeMasterDay(delta) {
     masterDayIndex = (masterDayIndex + delta + 7) % 7;
     renderMasterDay();
@@ -366,7 +370,7 @@ function renderMasterDay() {
             <div class="flex gap-2 items-center">
                 <span class="text-xs text-gray-400 w-5 text-center shrink-0">${d.id}</span>
                 <input type="text" value="${t}" class="m-time"
-                    style="width:72px;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:14px;font-weight:700;text-align:center"
+                    style="width:80px;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:14px;font-weight:700;text-align:center"
                     placeholder="9-18">
                 <input type="text" value="${d.name}" class="m-name"
                     style="flex:1;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:14px;font-weight:700">
@@ -379,11 +383,11 @@ function renderMasterDay() {
 
 async function addMasterSlotCurrent() {
     const day = DAYS[masterDayIndex];
-    const time = prompt(`${day}曜日・新しい枠の時間\n例: 9-18`, '9-18');
+    const time = prompt(`${day}曜日・新しい枠の時間\n例: 9-18 や 9:30-17:30`, '9-18');
     if (time === null) return;
     const name = prompt('担当者名（未定の場合は「未定」など）', '未定');
     if (name === null) return;
-    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ type: 'addMaster', day, time, name, pass: savedAdminPass }) });
+    const res = await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'addMaster', day, time, name, pass: savedAdminPass}) });
     const text = await res.text();
     if (text === 'auth_error') { alert('セッション切れです。再読み込みしてください。'); location.reload(); return; }
     await loadMaster();
@@ -395,7 +399,7 @@ async function updateMaster(row, btn) {
     const name = row_div.querySelector('.m-name').value;
     const orig = btn.innerText;
     btn.innerText = '⏳'; btn.disabled = true;
-    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ type: 'directMaster', row, time, name, pass: savedAdminPass }) });
+    const res = await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'directMaster', row, time, name, pass: savedAdminPass}) });
     const text = await res.text();
     if (text === 'auth_error') { alert('セッション切れです。再読み込みしてください。'); location.reload(); return; }
     const idx = allMasterData.findIndex(d => String(d.row) === String(row));
