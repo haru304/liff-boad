@@ -372,4 +372,178 @@ async function loadToday() {
     // キャッシュ確認（5分以内）
     const cached = loadCache(cacheKey(gasDate), 5 * 60 * 1000);
     if (cached) {
-        counter.innerHTML = buildBarChart(cache
+        counter.innerHTML = buildBarChart(cached);
+        renderShiftList(cached, list);
+        return;
+    }
+
+    counter.innerHTML = '<div style="font-size:12px;color:#9ca3af;text-align:center">読み込み中...</div>';
+
+    try {
+        const res = await fetch(GAS_URL + '?date=' + gasDate, { signal });
+        if (signal.aborted) return; // 日付が変わっていたら捨てる
+        const data = await res.json();
+
+        saveCache(cacheKey(gasDate), data);
+        counter.innerHTML = buildBarChart(data);
+        renderShiftList(data, list);
+
+    } catch(e) {
+        if (e.name === 'AbortError') return;
+        counter.innerHTML = '<div style="color:#ef4444;font-size:12px;text-align:center">読み込みエラー。再度お試しください。</div>';
+    }
+}
+
+function renderShiftList(data, list) {
+    list.innerHTML = '';
+    if (data.length === 0) {
+        list.innerHTML = '<div class="text-center text-gray-400 text-sm py-8">この日のシフトはありません</div>';
+    }
+    data.forEach(s => list.appendChild(renderShiftCard(s)));
+
+    const addBtn = document.createElement('div');
+    addBtn.style.marginTop = '12px';
+    addBtn.innerHTML = `
+        <button onclick="addTodaySlot()"
+            style="width:100%;font-size:14px;font-weight:700;color:#15803d;background:#f0fdf4;border:2px dashed #4ade80;border-radius:12px;padding:13px;cursor:pointer">
+            ＋ 枠を追加（分割・応援など）
+        </button>
+    `;
+    list.appendChild(addBtn);
+}
+
+async function addTodaySlot() {
+    const time = prompt('勤務時間を入力してください\n例: 9-18 や 6:30-15:00', '9-18');
+    if (time === null) return;
+    const brk  = prompt('休憩時間を入力してください（なければ空欄でOK）\n例: 12:00-13:00', '');
+    if (brk === null) return;
+    const name = prompt('担当者名を入力してください', '');
+    if (name === null) return;
+    clearCache(cacheKey(getCurrentGasDate()));
+    await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'addDaily', time, brk, name, date: getCurrentGasDate()}) });
+    loadToday();
+}
+
+async function deleteDaily(id, btn) {
+    if (!confirm('この枠を削除しますか？\n（固定シフトは翌日から元に戻ります）')) return;
+    const card = btn.closest('div[style*="border-radius:12px"]');
+    btn.disabled = true; btn.innerText = '削除中...';
+    clearCache(cacheKey(getCurrentGasDate()));
+    await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'deleteDaily', id, date: getCurrentGasDate()}) });
+    card.style.opacity = '0.3';
+    setTimeout(() => loadToday(), 700);
+}
+
+async function updateDaily(id, btn) {
+    const editArea = document.getElementById('edit-' + id);
+    const time = editArea.querySelector('.time-input').value;
+    const brk  = editArea.querySelector('.brk-input').value;
+    const name = editArea.querySelector('.name-input').value;
+    btn.disabled = true; btn.innerText = '保存中...';
+    btn.style.background = '#9ca3af';
+    clearCache(cacheKey(getCurrentGasDate()));
+    await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'daily', id, time, brk, name, date: getCurrentGasDate()}) });
+    loadToday();
+}
+
+// ---- 固定シフト（マスター） ----
+function changeMasterDay(delta) { masterDayIndex = (masterDayIndex + delta + 7) % 7; renderMasterDay(); }
+function jumpMasterDay(index)   { masterDayIndex = index; renderMasterDay(); }
+
+async function loadMaster() {
+    document.getElementById('master-list').innerHTML =
+        '<div class="text-center text-gray-400 py-6 text-sm">読み込み中...</div>';
+
+    const cached = loadCache(CACHE_MASTER_KEY, 30 * 60 * 1000); // 30分キャッシュ
+    if (cached) {
+        allMasterData = cached;
+        renderMasterDay();
+        return;
+    }
+
+    const res = await fetch(GAS_URL + '?mode=allMaster');
+    allMasterData = await res.json();
+    saveCache(CACHE_MASTER_KEY, allMasterData);
+    renderMasterDay();
+}
+
+function renderMasterDay() {
+    const day = DAYS[masterDayIndex];
+    document.getElementById('master-day-label').textContent = `${day}曜日`;
+    DAYS.forEach((_, i) => {
+        const btn = document.getElementById(`day-btn-${i}`);
+        if (!btn) return;
+        const isSel=i===masterDayIndex, isSat=i===5, isSun=i===6;
+        if (isSel)      btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border bg-blue-600 text-white border-blue-600';
+        else if (isSun) btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-red-500 border-gray-200 hover:bg-red-50';
+        else if (isSat) btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-blue-500 border-gray-200 hover:bg-blue-50';
+        else            btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-gray-600 border-gray-200 hover:bg-gray-50';
+    });
+
+    const dayData = allMasterData.filter(d => d.day === day);
+    document.getElementById('master-counter').innerHTML = buildBarChart(dayData);
+
+    const list = document.getElementById('master-list');
+    if (dayData.length === 0) {
+        list.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">この曜日の枠はありません</div>';
+        return;
+    }
+    list.innerHTML = dayData.map(d => {
+        const t   = sanitizeTime(d.time);
+        const brk = sanitizeTime(d.brk || '');
+        return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+                <input type="text" value="${t}" class="m-time"
+                    style="width:90px;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700;text-align:center;font-family:monospace"
+                    placeholder="9-18">
+                <span style="font-size:11px;color:#9ca3af;flex-shrink:0">休憩</span>
+                <input type="text" value="${brk}" class="m-brk"
+                    style="width:90px;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700;text-align:center;font-family:monospace"
+                    placeholder="12:00-13:00">
+                <input type="text" value="${d.name}" class="m-name"
+                    style="flex:1;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700">
+                <button onclick="updateMaster('${d.row}', this)"
+                    style="background:#374151;color:white;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">保存</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function addMasterSlotCurrent() {
+    const day  = DAYS[masterDayIndex];
+    const time = prompt(`${day}曜日・勤務時間\n例: 9-18 や 6:30-15:00`, '9-18');
+    if (time === null) return;
+    const brk  = prompt('休憩時間（なければ空欄）\n例: 12:00-13:00', '');
+    if (brk === null) return;
+    const name = prompt('担当者名', '未定');
+    if (name === null) return;
+    clearCache(CACHE_MASTER_KEY);
+    const res  = await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'addMaster', day, time, brk, name, pass: savedAdminPass}) });
+    const text = await res.text();
+    if (text === 'auth_error') { alert('セッション切れです。再読み込みしてください。'); location.reload(); return; }
+    await loadMaster();
+}
+
+async function updateMaster(row, btn) {
+    const rowDiv = btn.closest('div[class*="bg-white"]').querySelector('div');
+    const time = rowDiv.querySelector('.m-time').value;
+    const brk  = rowDiv.querySelector('.m-brk').value;
+    const name = rowDiv.querySelector('.m-name').value;
+    const orig = btn.innerText;
+    btn.innerText = '⏳'; btn.disabled = true;
+    clearCache(CACHE_MASTER_KEY);
+    const res  = await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'directMaster', row, time, brk, name, pass: savedAdminPass}) });
+    const text = await res.text();
+    if (text === 'auth_error') { alert('セッション切れです。再読み込みしてください。'); location.reload(); return; }
+    const idx = allMasterData.findIndex(d => String(d.row) === String(row));
+    if (idx >= 0) { allMasterData[idx].time = time; allMasterData[idx].brk = brk; allMasterData[idx].name = name; }
+    saveCache(CACHE_MASTER_KEY, allMasterData);
+    btn.innerText = '完了!'; btn.style.background = '#16a34a';
+    setTimeout(() => { btn.innerText = orig; btn.style.background = '#374151'; btn.disabled = false; }, 1500);
+}
+
+loadToday();
+</script>
+</body>
+</html>
