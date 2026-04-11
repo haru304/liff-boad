@@ -15,9 +15,7 @@
 <body class="bg-gray-100 pb-24">
 <div class="max-w-md mx-auto p-4">
 
-    <!-- ========== シフト確認画面 ========== -->
     <div id="view-today">
-
         <!-- 日付ナビ -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3 flex items-center gap-1">
             <button onclick="changeDate(-1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">&#9664;</button>
@@ -28,8 +26,8 @@
             <button onclick="changeDate(1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">&#9654;</button>
         </div>
 
-        <!-- 時間別カウンター -->
-        <div id="counter" class="bg-white rounded-xl shadow-sm border-t-4 border-blue-500 p-3 mb-4 overflow-x-auto">
+        <!-- バーグラフカウンター -->
+        <div id="counter" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
             <div class="text-center text-gray-400 text-xs">読み込み中...</div>
         </div>
 
@@ -37,11 +35,9 @@
         <div id="shift-list" class="space-y-2"></div>
     </div>
 
-    <!-- ========== 固定シフト画面 ========== -->
     <div id="view-master" class="hidden">
         <h1 class="text-xl font-bold mb-3 text-center text-gray-800">固定シフト設定</h1>
 
-        <!-- 認証画面 -->
         <div id="auth-screen" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-center mt-8">
             <p class="text-sm font-bold text-gray-700 mb-4">&#128272; 管理者パスワード</p>
             <input type="password" id="admin-pass" class="border border-gray-300 p-2 rounded-lg w-full mb-4 text-center text-lg" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')unlockMaster()">
@@ -49,7 +45,6 @@
             <p id="auth-error" class="text-red-500 text-xs mt-3 hidden font-bold">パスワードが違います</p>
         </div>
 
-        <!-- マスターコンテンツ -->
         <div id="master-content" class="hidden">
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3">
                 <div class="flex items-center mb-2">
@@ -68,11 +63,10 @@
                 </div>
             </div>
 
-            <div id="master-counter" class="bg-white rounded-xl shadow-sm border-t-4 border-purple-500 p-3 mb-3 overflow-x-auto"></div>
+            <div id="master-counter" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-3"></div>
 
             <p class="text-xs text-center text-gray-400 font-bold mb-3">※基本シフトを編集します（パスワード必要）</p>
             <div id="master-list" class="space-y-2"></div>
-
             <button onclick="addMasterSlotCurrent()" class="mt-3 w-full text-sm font-bold text-blue-600 bg-blue-50 border-2 border-dashed border-blue-300 hover:bg-blue-100 py-3 rounded-xl transition">
                 ＋ この曜日に枠を追加
             </button>
@@ -81,7 +75,6 @@
 
 </div>
 
-<!-- タブバー -->
 <div class="fixed bottom-0 left-0 right-0 bg-gray-200 flex border-t border-gray-300 h-16 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
     <button onclick="switchTab('today')" id="tab-today" class="flex-1 flex flex-col items-center justify-center text-gray-500 active-tab font-bold">
         <span class="text-xl">&#128197;</span><span class="text-xs mt-1">シフト確認</span>
@@ -141,27 +134,69 @@ function parseHour(str) {
     const parts = str.split(':');
     return Number(parts[0]) + (parts[1] ? Number(parts[1]) / 60 : 0);
 }
-function buildCounter(data, color) {
-    const slots = Array(28).fill(0);
+
+// 1時間単位で人数を集計（9〜22時 = 14本のバー）
+function calcHourCounts(data) {
+    const counts = Array(14).fill(0); // index 0 = 9時台, 13 = 22時台
     data.forEach(s => {
         const t = sanitizeTime(s.time);
-        if (!t || !s.name || s.name==='なし' || s.name==='未定') return;
+        if (!t || !s.name || s.name === 'なし' || s.name === '未定') return;
         const [startStr, endStr] = t.split('-');
         const st = parseHour(startStr), en = parseHour(endStr);
         if (isNaN(st) || isNaN(en)) return;
-        for (let slot=0; slot<slots.length; slot++) {
-            const slotStart = 9 + slot * 0.5;
-            if (slotStart >= st && slotStart < en) slots[slot]++;
+        for (let h = 0; h < 14; h++) {
+            const hourStart = 9 + h;
+            // その時間帯に1分でも被っていればカウント
+            if (st < hourStart + 1 && en > hourStart) counts[h]++;
         }
     });
-    return '<div style="display:flex">' + slots.map((n,i) => {
-        const hour = 9 + i * 0.5;
-        const isHour = Number.isInteger(hour);
-        return `<div style="display:flex;flex-direction:column;align-items:center;min-width:${isHour?34:17}px;padding:0 1px">
-            <div style="font-size:11px;color:#9ca3af;margin-bottom:4px;min-height:16px">${isHour ? Math.round(hour) : ''}</div>
-            <div style="font-size:${isHour?17:12}px;font-weight:700;color:${n===0?'#ef4444':color}">${n}</div>
+    return counts;
+}
+
+// バーグラフを描画
+function buildBarChart(data) {
+    const counts = calcHourCounts(data);
+    const maxCount = Math.max(...counts, 1);
+
+    function barColor(n) {
+    if (n === 0) return { bg: '#fecaca', fill: '#ef4444', text: '#991b1b' }; // 赤：完全に抜け
+    if (n === 1) return { bg: '#fecaca', fill: '#f97316', text: '#9a3412' }; // オレンジ：かなり少ない
+    if (n === 2) return { bg: '#fef3c7', fill: '#f59e0b', text: '#92400e' }; // 黄：少ない
+    if (n === 3) return { bg: '#dbeafe', fill: '#3b82f6', text: '#1e40af' }; // 青：標準
+    return { bg: '#d1fae5', fill: '#10b981', text: '#065f46' };              // 緑：余裕あり
+    }
+
+    const BAR_MAX_H = 52; // バー最大高さ(px)
+
+    const bars = counts.map((n, i) => {
+        const hour = 9 + i;
+        const c = barColor(n);
+        const barH = n === 0 ? 6 : Math.max(16, Math.round((n / maxCount) * BAR_MAX_H));
+        return `
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+            <!-- 人数ラベル（バーの上） -->
+            <div style="font-size:11px;font-weight:700;color:${c.text};min-height:14px;line-height:1">
+                ${n > 0 ? n : ''}
+            </div>
+            <!-- バー本体 -->
+            <div style="width:100%;background:${c.bg};border-radius:4px;display:flex;align-items:flex-end;height:${BAR_MAX_H}px">
+                <div style="width:100%;background:${c.fill};border-radius:4px;height:${barH}px;transition:height 0.3s"></div>
+            </div>
+            <!-- 時刻ラベル（バーの下） -->
+            <div style="font-size:10px;color:#9ca3af;font-weight:600;line-height:1">${hour}</div>
         </div>`;
-    }).join('') + '</div>';
+    }).join('');
+
+    // 凡例
+    const legend = `
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:8px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#ef4444"></div><span style="font-size:10px;color:#6b7280">0人</span></div>
+        <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#f59e0b"></div><span style="font-size:10px;color:#6b7280">1人</span></div>
+        <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#3b82f6"></div><span style="font-size:10px;color:#6b7280">2人</span></div>
+        <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#10b981"></div><span style="font-size:10px;color:#6b7280">3人以上</span></div>
+    </div>`;
+
+    return legend + `<div style="display:flex;gap:2px;align-items:flex-end">${bars}</div>`;
 }
 
 function switchTab(tab) {
@@ -199,19 +234,13 @@ async function unlockMaster() {
     } catch(e) { alert("通信エラー"); btn.innerText = "ロック解除"; btn.disabled = false; }
 }
 
-// 編集モードを開閉する
 function toggleEdit(id) {
     const editArea = document.getElementById('edit-' + id);
     const chevron  = document.getElementById('chev-' + id);
     const isOpen   = editArea.classList.contains('open');
-    // 他の開いている編集エリアをすべて閉じる
-    document.querySelectorAll('.edit-area.open').forEach(el => {
-        el.classList.remove('open');
-    });
+    document.querySelectorAll('.edit-area.open').forEach(el => el.classList.remove('open'));
     document.querySelectorAll('.chev').forEach(el => {
-        el.textContent = '変更';
-        el.style.background = '#f3f4f6';
-        el.style.color = '#374151';
+        el.textContent = '変更'; el.style.background = '#f3f4f6'; el.style.color = '#374151';
     });
     if (!isOpen) {
         editArea.classList.add('open');
@@ -233,7 +262,8 @@ async function loadToday() {
     try {
         const res = await fetch(GAS_URL + '?date=' + gasDate);
         const data = await res.json();
-        counter.innerHTML = buildCounter(data, '#2563eb');
+
+        counter.innerHTML = buildBarChart(data);
 
         if (data.length === 0) {
             list.innerHTML = '<div class="text-center text-gray-400 text-sm py-8">この日のシフトはありません</div>';
@@ -242,8 +272,6 @@ async function loadToday() {
         data.forEach(s => {
             const time = sanitizeTime(s.time);
             const card = document.createElement('div');
-
-            // ステータスカラー
             const borderColor = s.isTodayOnly ? '#86efac' : s.isChanged ? '#fde68a' : '#e5e7eb';
             const badgeHtml = s.isTodayOnly
                 ? '<span style="font-size:10px;background:#dcfce7;color:#15803d;font-weight:700;padding:2px 7px;border-radius:99px">追加枠</span>'
@@ -252,14 +280,17 @@ async function loadToday() {
                 : '';
 
             card.style.cssText = `background:white;border-radius:12px;border:1.5px solid ${borderColor};overflow:hidden;`;
-
             card.innerHTML = `
                 <!-- 表示行 -->
-                <div style="display:flex;align-items:center;padding:12px 14px;gap:12px">
-                    <div style="font-size:20px;font-weight:800;color:#1e293b;min-width:80px;letter-spacing:0.5px">${time || '未設定'}</div>
-                    <div style="flex:1">
-                        <div style="font-size:15px;font-weight:700;color:#1e293b">${s.name}</div>
-                        <div style="margin-top:2px">${badgeHtml}</div>
+                <div style="display:flex;align-items:center;padding:11px 14px;gap:10px">
+                    <!-- 時間：固定幅で名前の開始位置を揃える -->
+                    <div style="min-width:88px;max-width:88px;font-size:17px;font-weight:800;color:#1e293b;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                        ${time || '未設定'}
+                    </div>
+                    <!-- 名前とバッジ -->
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:15px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+                        ${badgeHtml ? `<div style="margin-top:3px">${badgeHtml}</div>` : ''}
                     </div>
                     <button id="chev-${s.id}" class="chev" onclick="toggleEdit('${s.id}')"
                         style="font-size:12px;font-weight:700;color:#374151;background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;white-space:nowrap;flex-shrink:0">
@@ -267,7 +298,7 @@ async function loadToday() {
                     </button>
                 </div>
 
-                <!-- 編集エリア（初期非表示） -->
+                <!-- 編集エリア -->
                 <div id="edit-${s.id}" class="edit-area" style="border-top:1px solid #f1f5f9;padding:14px;background:#f8fafc">
                     <div style="display:flex;gap:8px;margin-bottom:10px">
                         <div style="flex:0 0 100px">
@@ -298,7 +329,6 @@ async function loadToday() {
             list.appendChild(card);
         });
 
-        // 枠追加ボタン
         const addBtn = document.createElement('div');
         addBtn.style.marginTop = '12px';
         addBtn.innerHTML = `
@@ -371,7 +401,7 @@ function renderMasterDay() {
         else btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-gray-600 border-gray-200 hover:bg-gray-50';
     });
     const dayData = allMasterData.filter(d => d.day === day);
-    document.getElementById('master-counter').innerHTML = buildCounter(dayData, '#7c3aed');
+    document.getElementById('master-counter').innerHTML = buildBarChart(dayData);
     const list = document.getElementById('master-list');
     if (dayData.length === 0) {
         list.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">この曜日の枠はありません</div>';
