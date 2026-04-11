@@ -191,9 +191,10 @@ function buildBarChart(data) {
     const legend = `
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:8px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#ef4444"></div><span style="font-size:10px;color:#6b7280">0人</span></div>
-        <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#f59e0b"></div><span style="font-size:10px;color:#6b7280">1人</span></div>
-        <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#3b82f6"></div><span style="font-size:10px;color:#6b7280">2人</span></div>
-        <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#10b981"></div><span style="font-size:10px;color:#6b7280">3人以上</span></div>
+        <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#f97316"></div><span style="font-size:10px;color:#6b7280">1人</span></div>
+        <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#f59e0b"></div><span style="font-size:10px;color:#6b7280">2人</span></div>
+        <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#3b82f6"></div><span style="font-size:10px;color:#6b7280">3人（標準）</span></div>
+        <div style="display:flex;align-items:center;gap:3px"><div style="width:10px;height:10px;border-radius:2px;background:#10b981"></div><span style="font-size:10px;color:#6b7280">4人以上</span></div>
     </div>`;
 
     return legend + `<div style="display:flex;gap:2px;align-items:flex-end">${bars}</div>`;
