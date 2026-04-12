@@ -8,33 +8,54 @@
     <style>
         .active-tab { border-top: 4px solid #3b82f6; background: white; color: #3b82f6; }
         input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
-        .edit-area { display: none; }
-        .edit-area.open { display: block; }
         .time-mono { font-family: 'Courier New', Courier, monospace; }
-        #save-bar { display: none; }
-        #save-bar.visible { display: flex; }
+        .edit-input { display:none; }
+        .edit-mode .edit-input { display:block; }
+        .edit-mode .view-text { display:none; }
+        #save-bar { display:none; }
+        #save-bar.visible { display:flex; }
     </style>
 </head>
 <body class="bg-gray-100 pb-32">
 <div class="max-w-md mx-auto p-4">
 
     <div id="view-today">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3 flex items-center gap-1">
-            <button onclick="changeDate(-1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">&#9664;</button>
-            <div class="flex-1 text-center">
-                <input type="date" id="date-picker" class="text-sm font-bold text-gray-700 text-center bg-transparent border-none outline-none cursor-pointer w-full" onchange="onDateChange()">
-                <div id="date-label" class="text-xs text-gray-400 mt-0.5"></div>
+
+        <!-- 日付ナビ -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3">
+            <div class="flex items-center gap-1 mb-2">
+                <button onclick="changeDate(-1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">&#9664;</button>
+                <div class="flex-1 text-center">
+                    <input type="date" id="date-picker" class="text-sm font-bold text-gray-700 text-center bg-transparent border-none outline-none cursor-pointer w-full" onchange="onDateChange()">
+                    <div id="date-label" class="text-xs text-gray-400 mt-0.5"></div>
+                </div>
+                <button onclick="changeDate(1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">&#9654;</button>
             </div>
-            <button onclick="changeDate(1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">&#9654;</button>
+            <!-- 休日トグル -->
+            <button id="holiday-toggle" onclick="toggleHoliday()"
+                style="width:100%;padding:6px;border-radius:8px;border:1.5px solid #e5e7eb;font-size:12px;font-weight:700;color:#6b7280;background:#f9fafb;cursor:pointer">
+                休日扱いにする
+            </button>
         </div>
 
-        <div id="counter" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
+        <!-- バーグラフ -->
+        <div id="counter" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-3">
             <div class="text-center text-gray-400 text-xs">読み込み中...</div>
         </div>
 
+        <!-- 変更ボタン（1つ） -->
+        <div id="edit-toggle-row" class="hidden justify-end mb-2">
+            <button id="edit-toggle-btn" onclick="toggleEditMode()"
+                style="font-size:12px;font-weight:700;color:#374151;background:#f3f4f6;border:none;border-radius:8px;padding:7px 16px;cursor:pointer">
+                変更する
+            </button>
+        </div>
+
+        <!-- シフト一覧 -->
         <div id="shift-list" class="space-y-2"></div>
     </div>
 
+    <!-- 固定シフト画面 -->
     <div id="view-master" class="hidden">
         <h1 class="text-xl font-bold mb-3 text-center text-gray-800">固定シフト設定</h1>
 
@@ -60,6 +81,7 @@
                     <button onclick="jumpMasterDay(4)" id="day-btn-4" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition border">金</button>
                     <button onclick="jumpMasterDay(5)" id="day-btn-5" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition border">土</button>
                     <button onclick="jumpMasterDay(6)" id="day-btn-6" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition border">日</button>
+                    <button onclick="jumpMasterDay(7)" id="day-btn-7" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition border" style="color:#ef4444">休</button>
                 </div>
             </div>
             <div id="master-counter" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-3"></div>
@@ -72,16 +94,12 @@
     </div>
 </div>
 
-<!-- 一括保存バー（編集中に浮き上がる） -->
-<div id="save-bar" class="fixed items-center justify-between gap-3 left-0 right-0 bg-white border-t-2 border-blue-400 px-4 py-3 shadow-lg" style="bottom:64px;max-width:448px;margin:0 auto">
-    <div style="font-size:13px;font-weight:700;color:#1e40af" id="save-bar-label">0件を編集中</div>
+<!-- 一括保存バー -->
+<div id="save-bar" class="visible fixed items-center justify-between gap-3 left-0 right-0 bg-white border-t-2 border-blue-400 px-4 py-3 shadow-lg" style="bottom:64px;display:none">
+    <div style="font-size:13px;font-weight:700;color:#1e40af">変更中</div>
     <div style="display:flex;gap:8px">
-        <button onclick="cancelAllEdits()" style="font-size:13px;font-weight:700;color:#6b7280;background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer">
-            キャンセル
-        </button>
-        <button onclick="bulkSave()" id="bulk-save-btn" style="font-size:13px;font-weight:700;color:white;background:#2563eb;border:none;border-radius:8px;padding:8px 20px;cursor:pointer">
-            一括保存
-        </button>
+        <button onclick="cancelEditMode()" style="font-size:13px;font-weight:700;color:#6b7280;background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer">キャンセル</button>
+        <button onclick="bulkSave()" id="bulk-save-btn" style="font-size:13px;font-weight:700;color:white;background:#2563eb;border:none;border-radius:8px;padding:8px 20px;cursor:pointer">保存する</button>
     </div>
 </div>
 
@@ -98,14 +116,17 @@
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbx4uxrzu43hC88wXre40o6WuJX5mmuRiuZbdQaNA16gEbW8Db-436akuhIOYFnJOTvt/exec';
 let savedAdminPass = "";
-const DAYS = ['月','火','水','木','金','土','日'];
+// 休日を「休」として8番目に追加
+const DAYS = ['月','火','水','木','金','土','日','休'];
 let masterDayIndex = 0;
 let allMasterData = [];
 let currentAbortController = null;
+let isEditMode = false;
+let isHoliday = false; // 休日扱いトグル
 
 // ---- キャッシュ ----
 const CACHE_MASTER_KEY = 'sc_master_v2';
-function cacheKey(dateStr) { return 'sc_daily_' + dateStr; }
+function cacheKey(dateStr, holiday) { return 'sc_daily_' + dateStr + (holiday ? '_h' : ''); }
 function saveCache(key, data) {
     try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch(e) {}
 }
@@ -149,12 +170,16 @@ function updateDateLabel(d) {
 }
 function getSelectedDate() { return parseDateSafe(document.getElementById('date-picker').value); }
 function onDateChange() {
-    cancelAllEdits();
+    cancelEditMode();
+    isHoliday = false;
+    updateHolidayToggle();
     updateDateLabel(getSelectedDate());
     loadToday();
 }
 function changeDate(delta) {
-    cancelAllEdits();
+    cancelEditMode();
+    isHoliday = false;
+    updateHolidayToggle();
     const d = getSelectedDate();
     d.setDate(d.getDate() + delta);
     document.getElementById('date-picker').value = toInputDate(d);
@@ -162,6 +187,29 @@ function changeDate(delta) {
     loadToday();
 }
 function getCurrentGasDate() { return toGasDate(getSelectedDate()); }
+
+// ---- 休日トグル ----
+function toggleHoliday() {
+    cancelEditMode();
+    isHoliday = !isHoliday;
+    updateHolidayToggle();
+    clearCache(cacheKey(getCurrentGasDate(), isHoliday));
+    loadToday();
+}
+function updateHolidayToggle() {
+    const btn = document.getElementById('holiday-toggle');
+    if (isHoliday) {
+        btn.style.background = '#fef2f2';
+        btn.style.borderColor = '#fca5a5';
+        btn.style.color = '#dc2626';
+        btn.textContent = '休日扱い中（タップで解除）';
+    } else {
+        btn.style.background = '#f9fafb';
+        btn.style.borderColor = '#e5e7eb';
+        btn.style.color = '#6b7280';
+        btn.textContent = '休日扱いにする';
+    }
+}
 
 // ---- 時間パース ----
 function sanitizeTime(val) {
@@ -229,6 +277,7 @@ function buildBarChart(data) {
 
 // ---- タブ ----
 function switchTab(tab) {
+    cancelEditMode();
     document.getElementById('view-today').classList.toggle('hidden', tab !== 'today');
     document.getElementById('view-master').classList.toggle('hidden', tab !== 'master');
     document.getElementById('tab-today').classList.toggle('active-tab', tab === 'today');
@@ -264,76 +313,52 @@ async function unlockMaster() {
     } catch(e) { alert("通信エラー"); btn.innerText = "ロック解除"; btn.disabled = false; }
 }
 
-// ---- 一括保存バーの表示管理 ----
-function updateSaveBar() {
-    const openCount = document.querySelectorAll('.edit-area.open').length;
-    const bar = document.getElementById('save-bar');
-    if (openCount > 0) {
-        bar.classList.add('visible');
-        document.getElementById('save-bar-label').textContent = `${openCount}件を編集中`;
-    } else {
-        bar.classList.remove('visible');
-    }
+// ---- 編集モード（全カード一括開閉） ----
+function toggleEditMode() {
+    isEditMode ? cancelEditMode() : enterEditMode();
 }
-
-// ---- 編集トグル（複数同時開放OK） ----
-function toggleEdit(id) {
-    const editArea = document.getElementById('edit-' + id);
-    const chevron  = document.getElementById('chev-' + id);
-    const isOpen   = editArea.classList.contains('open');
-    if (isOpen) {
-        editArea.classList.remove('open');
-        chevron.textContent = '変更';
-        chevron.style.background = '#f3f4f6';
-        chevron.style.color = '#374151';
-    } else {
-        editArea.classList.add('open');
-        chevron.textContent = '閉じる';
-        chevron.style.background = '#fee2e2';
-        chevron.style.color = '#dc2626';
-    }
-    updateSaveBar();
+function enterEditMode() {
+    isEditMode = true;
+    document.getElementById('shift-list').classList.add('edit-mode');
+    document.getElementById('edit-toggle-btn').textContent = '編集中...';
+    document.getElementById('edit-toggle-btn').style.background = '#fee2e2';
+    document.getElementById('edit-toggle-btn').style.color = '#dc2626';
+    document.getElementById('save-bar').style.display = 'flex';
 }
-
-function cancelAllEdits() {
-    document.querySelectorAll('.edit-area.open').forEach(el => el.classList.remove('open'));
-    document.querySelectorAll('.chev').forEach(el => {
-        el.textContent = '変更';
-        el.style.background = '#f3f4f6';
-        el.style.color = '#374151';
-    });
-    updateSaveBar();
+function cancelEditMode() {
+    isEditMode = false;
+    document.getElementById('shift-list').classList.remove('edit-mode');
+    const btn = document.getElementById('edit-toggle-btn');
+    if (btn) { btn.textContent = '変更する'; btn.style.background = '#f3f4f6'; btn.style.color = '#374151'; }
+    document.getElementById('save-bar').style.display = 'none';
 }
 
 // ---- 一括保存 ----
 async function bulkSave() {
-    const openAreas = document.querySelectorAll('.edit-area.open');
-    if (openAreas.length === 0) return;
-
     const btn = document.getElementById('bulk-save-btn');
     btn.innerText = '保存中...'; btn.disabled = true;
 
     const items = [];
-    openAreas.forEach(area => {
-        const id   = area.id.replace('edit-', '');
-        const time = area.querySelector('.time-input').value;
-        const brk  = area.querySelector('.brk-input').value;
-        const name = area.querySelector('.name-input').value;
+    document.querySelectorAll('#shift-list [data-shift-id]').forEach(card => {
+        const id   = card.dataset.shiftId;
+        const time = card.querySelector('.time-input').value;
+        const brk  = card.querySelector('.brk-input').value;
+        const name = card.querySelector('.name-input').value;
         items.push({ id, time, brk, name });
     });
 
     try {
-        clearCache(cacheKey(getCurrentGasDate()));
+        clearCache(cacheKey(getCurrentGasDate(), isHoliday));
         await fetch(GAS_URL, {
             method: 'POST',
-            body: JSON.stringify({ type: 'dailyBulk', items, date: getCurrentGasDate() })
+            body: JSON.stringify({ type: 'dailyBulk', items, date: getCurrentGasDate(), holiday: isHoliday })
         });
-        cancelAllEdits();
+        cancelEditMode();
         loadToday();
     } catch(e) {
         alert('保存エラー。再度お試しください。');
     } finally {
-        btn.innerText = '一括保存'; btn.disabled = false;
+        btn.innerText = '保存する'; btn.disabled = false;
     }
 }
 
@@ -342,6 +367,7 @@ function renderShiftCard(s) {
     const time = sanitizeTime(s.time);
     const brk  = sanitizeTime(s.brk || '');
     const card = document.createElement('div');
+    card.dataset.shiftId = s.id;
     const borderColor = s.isTodayOnly ? '#86efac' : s.isChanged ? '#fde68a' : '#e5e7eb';
     const badgeHtml = s.isTodayOnly
         ? '<span style="font-size:10px;background:#dcfce7;color:#15803d;font-weight:700;padding:2px 7px;border-radius:99px">追加枠</span>'
@@ -354,8 +380,8 @@ function renderShiftCard(s) {
 
     card.style.cssText = `background:white;border-radius:12px;border:1.5px solid ${borderColor};overflow:hidden;`;
     card.innerHTML = `
-        <!-- 表示行 -->
-        <div style="display:flex;align-items:center;padding:11px 14px;gap:10px">
+        <!-- 表示（通常時） -->
+        <div class="view-text" style="display:flex;align-items:center;padding:11px 14px;gap:10px">
             <div class="time-mono" style="width:96px;min-width:96px;font-size:15px;font-weight:800;color:#1e293b;white-space:nowrap">
                 ${time || '未設定'}
             </div>
@@ -363,37 +389,32 @@ function renderShiftCard(s) {
                 <div style="font-size:15px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${badgeHtml}${brkBadge}</div>
             </div>
-            <button id="chev-${s.id}" class="chev" onclick="toggleEdit('${s.id}')"
-                style="font-size:12px;font-weight:700;color:#374151;background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;white-space:nowrap;flex-shrink:0">
-                変更
-            </button>
         </div>
 
-        <!-- 編集エリア（複数同時に開けるように個別管理） -->
-        <div id="edit-${s.id}" class="edit-area" style="border-top:1px solid #f1f5f9;padding:14px;background:#f8fafc">
+        <!-- 編集（edit-mode時） -->
+        <div class="edit-input" style="padding:12px 14px">
+            <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
             <div style="display:flex;gap:8px;margin-bottom:8px">
                 <div style="flex:1">
-                    <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;font-weight:600">勤務時間</div>
+                    <div style="font-size:10px;color:#94a3b8;margin-bottom:3px;font-weight:600">勤務時間</div>
                     <input type="text" value="${time}" class="time-input"
-                        style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px;font-size:14px;font-weight:700;text-align:center;box-sizing:border-box;background:white;font-family:monospace"
+                        style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:7px;font-size:14px;font-weight:700;text-align:center;box-sizing:border-box;font-family:monospace"
                         placeholder="9-18">
                 </div>
                 <div style="flex:1">
-                    <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;font-weight:600">休憩（任意）</div>
+                    <div style="font-size:10px;color:#94a3b8;margin-bottom:3px;font-weight:600">休憩</div>
                     <input type="text" value="${brk}" class="brk-input"
-                        style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px;font-size:14px;font-weight:700;text-align:center;box-sizing:border-box;background:white;font-family:monospace"
+                        style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:7px;font-size:14px;font-weight:700;text-align:center;box-sizing:border-box;font-family:monospace"
                         placeholder="12:00-13:00">
                 </div>
             </div>
-            <div>
-                <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;font-weight:600">名前</div>
+            <div style="margin-bottom:8px">
+                <div style="font-size:10px;color:#94a3b8;margin-bottom:3px;font-weight:600">名前</div>
                 <input type="text" value="${s.name}" class="name-input"
-                    style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px;font-size:15px;font-weight:700;box-sizing:border-box;background:white"
-                    placeholder="名前">
+                    style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:7px;font-size:14px;font-weight:700;box-sizing:border-box">
             </div>
-            <!-- 削除ボタンだけ個別に残す -->
             <button onclick="deleteDaily('${s.id}', this)"
-                style="margin-top:10px;width:100%;background:#fef2f2;color:#ef4444;border:1.5px solid #fca5a5;border-radius:8px;padding:8px;font-size:13px;font-weight:700;cursor:pointer">
+                style="width:100%;background:#fef2f2;color:#ef4444;border:1.5px solid #fca5a5;border-radius:8px;padding:7px;font-size:12px;font-weight:700;cursor:pointer">
                 この枠を削除
             </button>
         </div>
@@ -408,44 +429,49 @@ async function loadToday() {
     const signal = currentAbortController.signal;
 
     const d = getSelectedDate();
-    updateDateLabel(d);
     const gasDate = toGasDate(d);
     const list    = document.getElementById('shift-list');
     const counter = document.getElementById('counter');
+    const editRow = document.getElementById('edit-toggle-row');
     list.innerHTML = '';
+    editRow.classList.add('hidden');
 
-    const cached = loadCache(cacheKey(gasDate), 5 * 60 * 1000);
+    const cached = loadCache(cacheKey(gasDate, isHoliday), 5 * 60 * 1000);
     if (cached) {
         counter.innerHTML = buildBarChart(cached);
-        renderShiftList(cached, list);
+        renderShiftList(cached, list, editRow);
         return;
     }
 
     counter.innerHTML = '<div style="font-size:12px;color:#9ca3af;text-align:center">読み込み中...</div>';
     try {
-        const res  = await fetch(GAS_URL + '?date=' + gasDate, { signal });
+        const url = GAS_URL + '?date=' + gasDate + (isHoliday ? '&holiday=1' : '');
+        const res  = await fetch(url, { signal });
         if (signal.aborted) return;
         const data = await res.json();
-        saveCache(cacheKey(gasDate), data);
+        saveCache(cacheKey(gasDate, isHoliday), data);
         counter.innerHTML = buildBarChart(data);
-        renderShiftList(data, list);
+        renderShiftList(data, list, editRow);
     } catch(e) {
         if (e.name === 'AbortError') return;
         counter.innerHTML = '<div style="color:#ef4444;font-size:12px;text-align:center">読み込みエラー。再度お試しください。</div>';
     }
 }
 
-function renderShiftList(data, list) {
+function renderShiftList(data, list, editRow) {
     list.innerHTML = '';
     if (data.length === 0) {
         list.innerHTML = '<div class="text-center text-gray-400 text-sm py-8">この日のシフトはありません</div>';
+    } else {
+        editRow.classList.remove('hidden');
+        data.forEach(s => list.appendChild(renderShiftCard(s)));
     }
-    data.forEach(s => list.appendChild(renderShiftCard(s)));
+
     const addBtn = document.createElement('div');
     addBtn.style.marginTop = '12px';
     addBtn.innerHTML = `<button onclick="addTodaySlot()"
         style="width:100%;font-size:14px;font-weight:700;color:#15803d;background:#f0fdf4;border:2px dashed #4ade80;border-radius:12px;padding:13px;cursor:pointer">
-        ＋ 枠を追加
+        ＋ 枠を追加（分割・応援など）
     </button>`;
     list.appendChild(addBtn);
 }
@@ -457,23 +483,23 @@ async function addTodaySlot() {
     if (brk === null) return;
     const name = prompt('担当者名を入力してください', '');
     if (name === null) return;
-    clearCache(cacheKey(getCurrentGasDate()));
-    await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'addDaily', time, brk, name, date: getCurrentGasDate()}) });
+    clearCache(cacheKey(getCurrentGasDate(), isHoliday));
+    await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'addDaily', time, brk, name, date: getCurrentGasDate(), holiday: isHoliday}) });
     loadToday();
 }
 
 async function deleteDaily(id, btn) {
     if (!confirm('この枠を削除しますか？\n（固定シフトは翌日から元に戻ります）')) return;
-    const card = btn.closest('div[style*="border-radius:12px"]');
+    const card = btn.closest('[data-shift-id]');
     btn.disabled = true; btn.innerText = '削除中...';
-    clearCache(cacheKey(getCurrentGasDate()));
+    clearCache(cacheKey(getCurrentGasDate(), isHoliday));
     await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'deleteDaily', id, date: getCurrentGasDate()}) });
     card.style.opacity = '0.3';
     setTimeout(() => loadToday(), 700);
 }
 
 // ---- 固定シフト（マスター） ----
-function changeMasterDay(delta) { masterDayIndex = (masterDayIndex + delta + 7) % 7; renderMasterDay(); }
+function changeMasterDay(delta) { masterDayIndex = (masterDayIndex + delta + 8) % 8; renderMasterDay(); }
 function jumpMasterDay(index)   { masterDayIndex = index; renderMasterDay(); }
 
 async function loadMaster() {
@@ -489,18 +515,24 @@ async function loadMaster() {
 
 function renderMasterDay() {
     const day = DAYS[masterDayIndex];
-    document.getElementById('master-day-label').textContent = `${day}曜日`;
-    DAYS.forEach((_, i) => {
+    document.getElementById('master-day-label').textContent =
+        day === '休' ? '休日' : `${day}曜日`;
+
+    DAYS.forEach((d, i) => {
         const btn = document.getElementById(`day-btn-${i}`);
         if (!btn) return;
-        const isSel=i===masterDayIndex, isSat=i===5, isSun=i===6;
-        if (isSel)      btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border bg-blue-600 text-white border-blue-600';
-        else if (isSun) btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-red-500 border-gray-200 hover:bg-red-50';
-        else if (isSat) btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-blue-500 border-gray-200 hover:bg-blue-50';
-        else            btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-gray-600 border-gray-200 hover:bg-gray-50';
+        const isSel = i === masterDayIndex;
+        const isSat = i === 5, isSun = i === 6, isHol = i === 7;
+        if (isSel)       btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border bg-blue-600 text-white border-blue-600';
+        else if (isHol)  btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-red-500 border-red-200 hover:bg-red-50';
+        else if (isSun)  btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-red-400 border-gray-200 hover:bg-red-50';
+        else if (isSat)  btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-blue-500 border-gray-200 hover:bg-blue-50';
+        else             btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-gray-600 border-gray-200 hover:bg-gray-50';
     });
+
     const dayData = allMasterData.filter(d => d.day === day);
     document.getElementById('master-counter').innerHTML = buildBarChart(dayData);
+
     const list = document.getElementById('master-list');
     if (dayData.length === 0) {
         list.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">この曜日の枠はありません</div>';
@@ -539,7 +571,7 @@ function renderMasterDay() {
 
 async function addMasterSlotCurrent() {
     const day  = DAYS[masterDayIndex];
-    const time = prompt(`${day}曜日・勤務時間\n例: 9-18 や 6:30-15:00`, '9-18');
+    const time = prompt(`${day === '休' ? '休日' : day + '曜日'}・勤務時間\n例: 9-18 や 6:30-15:00`, '6:30-15:00');
     if (time === null) return;
     const brk  = prompt('休憩時間（なければ空欄）\n例: 12:00-13:00', '');
     if (brk === null) return;
@@ -553,11 +585,11 @@ async function addMasterSlotCurrent() {
 }
 
 async function updateMaster(row, btn) {
-    const card   = btn.closest('div[class*="bg-white"]');
-    const time   = card.querySelector('.m-time').value;
-    const brk    = card.querySelector('.m-brk').value;
-    const name   = card.querySelector('.m-name').value;
-    const orig   = btn.innerText;
+    const card = btn.closest('.bg-white.rounded-xl');
+    const time  = card.querySelector('.m-time').value;
+    const brk   = card.querySelector('.m-brk').value;
+    const name  = card.querySelector('.m-name').value;
+    const orig  = btn.innerText;
     btn.innerText = '⏳'; btn.disabled = true;
     clearCache(CACHE_MASTER_KEY);
     const res  = await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'directMaster', row, time, brk, name, pass: savedAdminPass}) });
