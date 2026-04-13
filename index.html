@@ -14,14 +14,17 @@
         .edit-mode .view-text { display:none; }
         #save-bar { display:none; }
         #save-bar.visible { display:flex; }
+        .cal-cell { min-height:52px; cursor:pointer; border-radius:8px; padding:4px; transition:background 0.15s; }
+        .cal-cell:hover { background:#f1f5f9; }
+        .cal-cell.selected { background:#eff6ff; outline:2px solid #3b82f6; }
+        .cal-cell.today-cell { font-weight:800; }
     </style>
 </head>
-<body class="bg-gray-100 pb-32">
+<body class="bg-gray-100 pb-20">
 <div class="max-w-md mx-auto p-4">
 
+    <!-- ===== シフト確認 ===== -->
     <div id="view-today">
-
-        <!-- 日付ナビ -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3">
             <div class="flex items-center gap-1 mb-2">
                 <button onclick="changeDate(-1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">&#9664;</button>
@@ -31,41 +34,84 @@
                 </div>
                 <button onclick="changeDate(1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold text-base transition">&#9654;</button>
             </div>
-            <!-- 休日トグル -->
             <button id="holiday-toggle" onclick="toggleHoliday()"
                 style="width:100%;padding:6px;border-radius:8px;border:1.5px solid #e5e7eb;font-size:12px;font-weight:700;color:#6b7280;background:#f9fafb;cursor:pointer">
                 休日扱いにする
             </button>
         </div>
-
-        <!-- バーグラフ -->
         <div id="counter" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-3">
             <div class="text-center text-gray-400 text-xs">読み込み中...</div>
         </div>
-
-        <!-- 変更ボタン（1つ） -->
         <div id="edit-toggle-row" class="hidden justify-end mb-2">
             <button id="edit-toggle-btn" onclick="toggleEditMode()"
                 style="font-size:12px;font-weight:700;color:#374151;background:#f3f4f6;border:none;border-radius:8px;padding:7px 16px;cursor:pointer">
                 変更する
             </button>
         </div>
-
-        <!-- シフト一覧 -->
         <div id="shift-list" class="space-y-2"></div>
     </div>
 
-    <!-- 固定シフト画面 -->
+    <!-- ===== 代行表 ===== -->
+    <div id="view-daiko" class="hidden">
+        <!-- 月ナビ -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3 flex items-center">
+            <button onclick="changeCalMonth(-1)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold transition">&#9664;</button>
+            <div class="flex-1 text-center font-bold text-base text-gray-800" id="cal-month-label"></div>
+            <button onclick="changeCalMonth(1)"  class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 font-bold transition">&#9654;</button>
+        </div>
+
+        <!-- カレンダー -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3">
+            <div class="grid grid-cols-7 mb-1">
+                <div class="text-center text-xs font-bold text-red-400 py-1">日</div>
+                <div class="text-center text-xs font-bold text-gray-500 py-1">月</div>
+                <div class="text-center text-xs font-bold text-gray-500 py-1">火</div>
+                <div class="text-center text-xs font-bold text-gray-500 py-1">水</div>
+                <div class="text-center text-xs font-bold text-gray-500 py-1">木</div>
+                <div class="text-center text-xs font-bold text-gray-500 py-1">金</div>
+                <div class="text-center text-xs font-bold text-blue-400 py-1">土</div>
+            </div>
+            <div id="cal-grid" class="grid grid-cols-7 gap-0.5"></div>
+        </div>
+
+        <!-- 選択日の詳細 -->
+        <div id="daiko-detail" class="hidden">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-3">
+                <div class="flex items-center justify-between mb-3">
+                    <div id="daiko-date-label" class="font-bold text-gray-800 text-sm"></div>
+                    <button onclick="openCreateDaiko()"
+                        style="font-size:12px;font-weight:700;color:white;background:#ef4444;border:none;border-radius:8px;padding:6px 14px;cursor:pointer">
+                        ＋ 募集を出す
+                    </button>
+                </div>
+                <div id="daiko-list" class="space-y-2">
+                    <div class="text-center text-gray-400 text-sm py-4">募集はありません</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 凡例 -->
+        <div class="flex gap-4 justify-center mt-2">
+            <div class="flex items-center gap-1">
+                <div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>
+                <span class="text-xs text-gray-500">募集中</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <div style="width:10px;height:10px;border-radius:50%;background:#10b981"></div>
+                <span class="text-xs text-gray-500">代行決定</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 固定設定 ===== -->
     <div id="view-master" class="hidden">
         <h1 class="text-xl font-bold mb-3 text-center text-gray-800">固定シフト設定</h1>
-
         <div id="auth-screen" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-center mt-8">
             <p class="text-sm font-bold text-gray-700 mb-4">&#128272; 管理者パスワード</p>
             <input type="password" id="admin-pass" class="border border-gray-300 p-2 rounded-lg w-full mb-4 text-center text-lg" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')unlockMaster()">
             <button onclick="unlockMaster()" id="auth-btn" class="bg-gray-800 hover:bg-gray-900 text-white px-6 py-2 rounded-lg font-bold w-full transition shadow">ロック解除</button>
             <p id="auth-error" class="text-red-500 text-xs mt-3 hidden font-bold">パスワードが違います</p>
         </div>
-
         <div id="master-content" class="hidden">
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-3">
                 <div class="flex items-center mb-2">
@@ -81,7 +127,6 @@
                     <button onclick="jumpMasterDay(4)" id="day-btn-4" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition border">金</button>
                     <button onclick="jumpMasterDay(5)" id="day-btn-5" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition border">土</button>
                     <button onclick="jumpMasterDay(6)" id="day-btn-6" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition border">日</button>
-                    <button onclick="jumpMasterDay(7)" id="day-btn-7" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition border" style="color:#ef4444">休</button>
                 </div>
             </div>
             <div id="master-counter" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-3"></div>
@@ -95,7 +140,7 @@
 </div>
 
 <!-- 一括保存バー -->
-<div id="save-bar" class="visible fixed items-center justify-between gap-3 left-0 right-0 bg-white border-t-2 border-blue-400 px-4 py-3 shadow-lg" style="bottom:64px;display:none">
+<div id="save-bar" class="fixed items-center justify-between gap-3 left-0 right-0 bg-white border-t-2 border-blue-400 px-4 py-3 shadow-lg" style="bottom:64px;display:none;max-width:448px;margin:0 auto">
     <div style="font-size:13px;font-weight:700;color:#1e40af">変更中</div>
     <div style="display:flex;gap:8px">
         <button onclick="cancelEditMode()" style="font-size:13px;font-weight:700;color:#6b7280;background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer">キャンセル</button>
@@ -103,30 +148,38 @@
     </div>
 </div>
 
-<!-- タブバー -->
+<!-- タブバー（3タブ） -->
 <div class="fixed bottom-0 left-0 right-0 bg-gray-200 flex border-t border-gray-300 h-16 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
     <button onclick="switchTab('today')" id="tab-today" class="flex-1 flex flex-col items-center justify-center text-gray-500 active-tab font-bold">
-        <span class="text-xl">&#128197;</span><span class="text-xs mt-1">シフト確認</span>
+        <span class="text-lg">&#128197;</span><span class="text-xs mt-0.5">シフト</span>
+    </button>
+    <button onclick="switchTab('daiko')" id="tab-daiko" class="flex-1 flex flex-col items-center justify-center text-gray-500 font-bold">
+        <span class="text-lg">&#128101;</span><span class="text-xs mt-0.5">代行表</span>
     </button>
     <button onclick="switchTab('master')" id="tab-master" class="flex-1 flex flex-col items-center justify-center text-gray-500 font-bold">
-        <span class="text-xl">&#9881;&#65039;</span><span class="text-xs mt-1">固定設定</span>
+        <span class="text-lg">&#9881;&#65039;</span><span class="text-xs mt-0.5">固定設定</span>
     </button>
 </div>
 
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbx4uxrzu43hC88wXre40o6WuJX5mmuRiuZbdQaNA16gEbW8Db-436akuhIOYFnJOTvt/exec';
 let savedAdminPass = "";
-// 休日を「休」として8番目に追加
-const DAYS = ['月','火','水','木','金','土','日','休'];
+const DAYS = ['月','火','水','木','金','土','日'];
 let masterDayIndex = 0;
 let allMasterData = [];
 let currentAbortController = null;
-let isEditMode = false;
-let isHoliday = false; // 休日扱いトグル
+let isEditMode  = false;
+let isHoliday   = false;
+
+// カレンダー用
+let calYear, calMonth;       // 表示中の年月
+let selectedDate = null;     // 選択中の日付文字列 "yyyy/MM/dd"
+let daikoData    = [];        // 当月の募集データキャッシュ
 
 // ---- キャッシュ ----
 const CACHE_MASTER_KEY = 'sc_master_v2';
 function cacheKey(dateStr, holiday) { return 'sc_daily_' + dateStr + (holiday ? '_h' : ''); }
+function daikoCacheKey(ym) { return 'sc_daiko_' + ym; }
 function saveCache(key, data) {
     try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch(e) {}
 }
@@ -147,6 +200,8 @@ function clearCache(key) { try { localStorage.removeItem(key); } catch(e) {} }
     document.getElementById('date-picker').value = toInputDate(today);
     updateDateLabel(today);
     masterDayIndex = (today.getDay() + 6) % 7;
+    calYear  = today.getFullYear();
+    calMonth = today.getMonth(); // 0-based
 })();
 
 function toInputDate(d) {
@@ -170,230 +225,175 @@ function updateDateLabel(d) {
 }
 function getSelectedDate() { return parseDateSafe(document.getElementById('date-picker').value); }
 function onDateChange() {
-    cancelEditMode();
-    isHoliday = false;
-    updateHolidayToggle();
-    updateDateLabel(getSelectedDate());
-    loadToday();
+    cancelEditMode(); isHoliday = false; updateHolidayToggle();
+    updateDateLabel(getSelectedDate()); loadToday();
 }
 function changeDate(delta) {
-    cancelEditMode();
-    isHoliday = false;
-    updateHolidayToggle();
-    const d = getSelectedDate();
-    d.setDate(d.getDate() + delta);
+    cancelEditMode(); isHoliday = false; updateHolidayToggle();
+    const d = getSelectedDate(); d.setDate(d.getDate() + delta);
     document.getElementById('date-picker').value = toInputDate(d);
-    updateDateLabel(d);
-    loadToday();
+    updateDateLabel(d); loadToday();
 }
 function getCurrentGasDate() { return toGasDate(getSelectedDate()); }
 
 // ---- 休日トグル ----
 function toggleHoliday() {
-    cancelEditMode();
-    isHoliday = !isHoliday;
-    updateHolidayToggle();
-    clearCache(cacheKey(getCurrentGasDate(), isHoliday));
-    loadToday();
+    cancelEditMode(); isHoliday = !isHoliday; updateHolidayToggle();
+    clearCache(cacheKey(getCurrentGasDate(), isHoliday)); loadToday();
 }
 function updateHolidayToggle() {
     const btn = document.getElementById('holiday-toggle');
     if (isHoliday) {
-        btn.style.background = '#fef2f2';
-        btn.style.borderColor = '#fca5a5';
-        btn.style.color = '#dc2626';
-        btn.textContent = '休日扱い中（タップで解除）';
+        btn.style.background='#fef2f2'; btn.style.borderColor='#fca5a5';
+        btn.style.color='#dc2626'; btn.textContent='休日扱い中（タップで解除）';
     } else {
-        btn.style.background = '#f9fafb';
-        btn.style.borderColor = '#e5e7eb';
-        btn.style.color = '#6b7280';
-        btn.textContent = '休日扱いにする';
+        btn.style.background='#f9fafb'; btn.style.borderColor='#e5e7eb';
+        btn.style.color='#6b7280'; btn.textContent='休日扱いにする';
     }
 }
 
 // ---- 時間パース ----
 function sanitizeTime(val) {
-    const s = String(val || '').trim();
+    const s = String(val||'').trim();
     return /^\d{1,2}(:\d{2})?-\d{1,2}(:\d{2})?$/.test(s) ? s : '';
 }
 function parseHour(str) {
     if (!str) return NaN;
-    const [h, m] = str.split(':');
-    return Number(h) + (m ? Number(m) / 60 : 0);
+    const [h,m] = str.split(':');
+    return Number(h) + (m ? Number(m)/60 : 0);
 }
-function parseTimeRange(timeStr) {
-    const t = sanitizeTime(timeStr);
-    if (!t) return null;
-    const [s, e] = t.split('-');
-    const st = parseHour(s), en = parseHour(e);
-    if (isNaN(st) || isNaN(en)) return null;
-    return { st, en };
+function parseTimeRange(t) {
+    const s = sanitizeTime(t);
+    if (!s) return null;
+    const [a,b] = s.split('-');
+    const st=parseHour(a), en=parseHour(b);
+    return (isNaN(st)||isNaN(en)) ? null : {st,en};
 }
 
 // ---- バーグラフ ----
-function calcCounts(data, startH, endH) {
-    const len = endH - startH;
-    const counts = Array(len).fill(0);
-    data.forEach(s => {
-        const tr = parseTimeRange(s.time);
-        if (!tr || !s.name || s.name === 'なし' || s.name === '未定') return;
-        const br = s.brk ? parseTimeRange(s.brk) : null;
-        for (let h = 0; h < len; h++) {
-            const hourStart = startH + h;
-            const working = tr.st < hourStart + 1 && tr.en > hourStart;
-            const onBreak = br && br.st < hourStart + 1 && br.en > hourStart;
-            if (working && !onBreak) counts[h]++;
+function calcCounts(data,startH,endH) {
+    const counts=Array(endH-startH).fill(0);
+    data.forEach(s=>{
+        const tr=parseTimeRange(s.time);
+        if(!tr||!s.name||s.name==='なし'||s.name==='未定') return;
+        const br=s.brk?parseTimeRange(s.brk):null;
+        for(let h=0;h<counts.length;h++){
+            const hs=startH+h;
+            if(tr.st<hs+1&&tr.en>hs&&!(br&&br.st<hs+1&&br.en>hs)) counts[h]++;
         }
     });
     return counts;
 }
 function buildBarChart(data) {
-    let minH = 9, maxH = 22;
-    data.forEach(s => {
-        const tr = parseTimeRange(s.time);
-        if (!tr) return;
-        if (Math.floor(tr.st) < minH) minH = Math.max(6, Math.floor(tr.st));
-        if (Math.ceil(tr.en)  > maxH) maxH = Math.min(25, Math.ceil(tr.en));
-    });
-    const counts = calcCounts(data, minH, maxH);
-    const maxCount = Math.max(...counts, 1);
-    const BAR_MAX_H = 48;
-    const bars = counts.map((n, i) => {
-        const hour = minH + i;
-        const barH = n === 0 ? 5 : Math.max(14, Math.round((n / maxCount) * BAR_MAX_H));
-        const fill = n === 0 ? '#ef4444' : '#3b82f6';
-        const bg   = n === 0 ? '#fecaca' : '#dbeafe';
-        const tc   = n === 0 ? '#991b1b' : '#1e40af';
+    let minH=9,maxH=22;
+    data.forEach(s=>{const tr=parseTimeRange(s.time);if(!tr)return;
+        if(Math.floor(tr.st)<minH)minH=Math.max(6,Math.floor(tr.st));
+        if(Math.ceil(tr.en)>maxH)maxH=Math.min(25,Math.ceil(tr.en));});
+    const counts=calcCounts(data,minH,maxH);
+    const mx=Math.max(...counts,1),BH=48;
+    return '<div style="display:flex;gap:2px">'+counts.map((n,i)=>{
+        const h=minH+i,bh=n===0?5:Math.max(14,Math.round(n/mx*BH));
+        const fill=n===0?'#ef4444':'#3b82f6',bg=n===0?'#fecaca':'#dbeafe',tc=n===0?'#991b1b':'#1e40af';
         return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0">
-            <div style="font-size:10px;font-weight:700;color:${tc};min-height:13px;line-height:1">${n > 0 ? n : ''}</div>
-            <div style="width:100%;background:${bg};border-radius:3px;display:flex;align-items:flex-end;height:${BAR_MAX_H}px">
-                <div style="width:100%;background:${fill};border-radius:3px;height:${barH}px"></div>
+            <div style="font-size:10px;font-weight:700;color:${tc};min-height:13px;line-height:1">${n>0?n:''}</div>
+            <div style="width:100%;background:${bg};border-radius:3px;display:flex;align-items:flex-end;height:${BH}px">
+                <div style="width:100%;background:${fill};border-radius:3px;height:${bh}px"></div>
             </div>
-            <div style="font-size:9px;color:#9ca3af;font-weight:600;line-height:1">${hour}</div>
+            <div style="font-size:9px;color:#9ca3af;font-weight:600;line-height:1">${h}</div>
         </div>`;
-    }).join('');
-    return `<div style="display:flex;gap:2px">${bars}</div>`;
+    }).join('')+'</div>';
 }
 
 // ---- タブ ----
 function switchTab(tab) {
     cancelEditMode();
-    document.getElementById('view-today').classList.toggle('hidden', tab !== 'today');
-    document.getElementById('view-master').classList.toggle('hidden', tab !== 'master');
-    document.getElementById('tab-today').classList.toggle('active-tab', tab === 'today');
-    document.getElementById('tab-master').classList.toggle('active-tab', tab === 'master');
-    if (tab === 'master') {
+    ['today','daiko','master'].forEach(t=>{
+        document.getElementById('view-'+t).classList.toggle('hidden', t!==tab);
+        document.getElementById('tab-'+t).classList.toggle('active-tab', t===tab);
+    });
+    if (tab==='master') {
         if (!savedAdminPass) {
             document.getElementById('auth-screen').classList.remove('hidden');
             document.getElementById('master-content').classList.add('hidden');
-        } else { loadMaster(); }
+        } else loadMaster();
     }
-    if (tab === 'today') loadToday();
+    if (tab==='today') loadToday();
+    if (tab==='daiko') loadDaikoMonth();
 }
 
 // ---- 認証 ----
 async function unlockMaster() {
-    const pass = document.getElementById('admin-pass').value;
-    if (!pass) return;
-    const btn = document.getElementById('auth-btn');
-    const err = document.getElementById('auth-error');
-    btn.innerText = "確認中..."; btn.disabled = true; err.classList.add('hidden');
+    const pass=document.getElementById('admin-pass').value; if(!pass)return;
+    const btn=document.getElementById('auth-btn'),err=document.getElementById('auth-error');
+    btn.innerText="確認中..."; btn.disabled=true; err.classList.add('hidden');
     try {
-        const res = await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'verify', pass}) });
-        if (await res.text() === "success") {
-            savedAdminPass = pass;
+        const res=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'verify',pass})});
+        if(await res.text()==="success"){
+            savedAdminPass=pass;
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('master-content').classList.remove('hidden');
-            document.getElementById('admin-pass').value = "";
+            document.getElementById('admin-pass').value="";
             loadMaster();
-        } else {
-            err.classList.remove('hidden');
-            btn.innerText = "ロック解除"; btn.disabled = false;
-        }
-    } catch(e) { alert("通信エラー"); btn.innerText = "ロック解除"; btn.disabled = false; }
+        } else { err.classList.remove('hidden'); btn.innerText="ロック解除"; btn.disabled=false; }
+    } catch(e){alert("通信エラー");btn.innerText="ロック解除";btn.disabled=false;}
 }
 
-// ---- 編集モード（全カード一括開閉） ----
-function toggleEditMode() {
-    isEditMode ? cancelEditMode() : enterEditMode();
-}
-function enterEditMode() {
-    isEditMode = true;
+// ---- 編集モード ----
+function toggleEditMode(){ isEditMode?cancelEditMode():enterEditMode(); }
+function enterEditMode(){
+    isEditMode=true;
     document.getElementById('shift-list').classList.add('edit-mode');
-    document.getElementById('edit-toggle-btn').textContent = '編集中...';
-    document.getElementById('edit-toggle-btn').style.background = '#fee2e2';
-    document.getElementById('edit-toggle-btn').style.color = '#dc2626';
-    document.getElementById('save-bar').style.display = 'flex';
+    document.getElementById('edit-toggle-btn').textContent='編集中...';
+    document.getElementById('edit-toggle-btn').style.background='#fee2e2';
+    document.getElementById('edit-toggle-btn').style.color='#dc2626';
+    document.getElementById('save-bar').style.display='flex';
 }
-function cancelEditMode() {
-    isEditMode = false;
-    document.getElementById('shift-list').classList.remove('edit-mode');
-    const btn = document.getElementById('edit-toggle-btn');
-    if (btn) { btn.textContent = '変更する'; btn.style.background = '#f3f4f6'; btn.style.color = '#374151'; }
-    document.getElementById('save-bar').style.display = 'none';
+function cancelEditMode(){
+    isEditMode=false;
+    const sl=document.getElementById('shift-list');
+    if(sl) sl.classList.remove('edit-mode');
+    const b=document.getElementById('edit-toggle-btn');
+    if(b){b.textContent='変更する';b.style.background='#f3f4f6';b.style.color='#374151';}
+    document.getElementById('save-bar').style.display='none';
 }
-
-// ---- 一括保存 ----
-async function bulkSave() {
-    const btn = document.getElementById('bulk-save-btn');
-    btn.innerText = '保存中...'; btn.disabled = true;
-
-    const items = [];
-    document.querySelectorAll('#shift-list [data-shift-id]').forEach(card => {
-        const id   = card.dataset.shiftId;
-        const time = card.querySelector('.time-input').value;
-        const brk  = card.querySelector('.brk-input').value;
-        const name = card.querySelector('.name-input').value;
-        items.push({ id, time, brk, name });
+async function bulkSave(){
+    const btn=document.getElementById('bulk-save-btn');
+    btn.innerText='保存中...'; btn.disabled=true;
+    const items=[];
+    document.querySelectorAll('#shift-list [data-shift-id]').forEach(card=>{
+        items.push({id:card.dataset.shiftId,
+            time:card.querySelector('.time-input').value,
+            brk:card.querySelector('.brk-input').value,
+            name:card.querySelector('.name-input').value});
     });
-
     try {
-        clearCache(cacheKey(getCurrentGasDate(), isHoliday));
-        await fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({ type: 'dailyBulk', items, date: getCurrentGasDate(), holiday: isHoliday })
-        });
-        cancelEditMode();
-        loadToday();
-    } catch(e) {
-        alert('保存エラー。再度お試しください。');
-    } finally {
-        btn.innerText = '保存する'; btn.disabled = false;
-    }
+        clearCache(cacheKey(getCurrentGasDate(),isHoliday));
+        await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'dailyBulk',items,date:getCurrentGasDate(),holiday:isHoliday})});
+        cancelEditMode(); loadToday();
+    } catch(e){alert('保存エラー');}
+    finally{btn.innerText='保存する';btn.disabled=false;}
 }
 
-// ---- カード描画 ----
-function renderShiftCard(s) {
-    const time = sanitizeTime(s.time);
-    const brk  = sanitizeTime(s.brk || '');
-    const card = document.createElement('div');
-    card.dataset.shiftId = s.id;
-    const borderColor = s.isTodayOnly ? '#86efac' : s.isChanged ? '#fde68a' : '#e5e7eb';
-    const badgeHtml = s.isTodayOnly
-        ? '<span style="font-size:10px;background:#dcfce7;color:#15803d;font-weight:700;padding:2px 7px;border-radius:99px">追加枠</span>'
-        : s.isChanged
-        ? '<span style="font-size:10px;background:#fef9c3;color:#a16207;font-weight:700;padding:2px 7px;border-radius:99px">変更済</span>'
-        : '';
-    const brkBadge = brk
-        ? `<span style="font-size:10px;background:#f3f4f6;color:#6b7280;padding:2px 6px;border-radius:99px">休憩 ${brk}</span>`
-        : '';
-
-    card.style.cssText = `background:white;border-radius:12px;border:1.5px solid ${borderColor};overflow:hidden;`;
-    card.innerHTML = `
-        <!-- 表示（通常時） -->
+// ---- シフトカード描画 ----
+function renderShiftCard(s){
+    const time=sanitizeTime(s.time),brk=sanitizeTime(s.brk||'');
+    const card=document.createElement('div');
+    card.dataset.shiftId=s.id;
+    const bc=s.isTodayOnly?'#86efac':s.isChanged?'#fde68a':'#e5e7eb';
+    const badge=s.isTodayOnly?'<span style="font-size:10px;background:#dcfce7;color:#15803d;font-weight:700;padding:2px 7px;border-radius:99px">追加枠</span>':
+        s.isChanged?'<span style="font-size:10px;background:#fef9c3;color:#a16207;font-weight:700;padding:2px 7px;border-radius:99px">変更済</span>':'';
+    const brkBadge=brk?`<span style="font-size:10px;background:#f3f4f6;color:#6b7280;padding:2px 6px;border-radius:99px">休憩 ${brk}</span>`:'';
+    card.style.cssText=`background:white;border-radius:12px;border:1.5px solid ${bc};overflow:hidden;`;
+    card.innerHTML=`
         <div class="view-text" style="display:flex;align-items:center;padding:11px 14px;gap:10px">
-            <div class="time-mono" style="width:96px;min-width:96px;font-size:15px;font-weight:800;color:#1e293b;white-space:nowrap">
-                ${time || '未設定'}
-            </div>
+            <div class="time-mono" style="width:96px;min-width:96px;font-size:15px;font-weight:800;color:#1e293b;white-space:nowrap">${time||'未設定'}</div>
             <div style="flex:1;min-width:0">
                 <div style="font-size:15px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
-                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${badgeHtml}${brkBadge}</div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${badge}${brkBadge}</div>
             </div>
         </div>
-
-        <!-- 編集（edit-mode時） -->
         <div class="edit-input" style="padding:12px 14px">
-            <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+            <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px">${s.name}</div>
             <div style="display:flex;gap:8px;margin-bottom:8px">
                 <div style="flex:1">
                     <div style="font-size:10px;color:#94a3b8;margin-bottom:3px;font-weight:600">勤務時間</div>
@@ -413,193 +413,307 @@ function renderShiftCard(s) {
                 <input type="text" value="${s.name}" class="name-input"
                     style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:7px;font-size:14px;font-weight:700;box-sizing:border-box">
             </div>
-            <button onclick="deleteDaily('${s.id}', this)"
+            <button onclick="deleteDaily('${s.id}',this)"
                 style="width:100%;background:#fef2f2;color:#ef4444;border:1.5px solid #fca5a5;border-radius:8px;padding:7px;font-size:12px;font-weight:700;cursor:pointer">
                 この枠を削除
             </button>
-        </div>
-    `;
+        </div>`;
     return card;
 }
 
-// ---- 今日のシフト読み込み ----
-async function loadToday() {
-    if (currentAbortController) currentAbortController.abort();
-    currentAbortController = new AbortController();
-    const signal = currentAbortController.signal;
-
-    const d = getSelectedDate();
-    const gasDate = toGasDate(d);
-    const list    = document.getElementById('shift-list');
-    const counter = document.getElementById('counter');
-    const editRow = document.getElementById('edit-toggle-row');
-    list.innerHTML = '';
-    editRow.classList.add('hidden');
-
-    const cached = loadCache(cacheKey(gasDate, isHoliday), 5 * 60 * 1000);
-    if (cached) {
-        counter.innerHTML = buildBarChart(cached);
-        renderShiftList(cached, list, editRow);
-        return;
-    }
-
-    counter.innerHTML = '<div style="font-size:12px;color:#9ca3af;text-align:center">読み込み中...</div>';
-    try {
-        const url = GAS_URL + '?date=' + gasDate + (isHoliday ? '&holiday=1' : '');
-        const res  = await fetch(url, { signal });
-        if (signal.aborted) return;
-        const data = await res.json();
-        saveCache(cacheKey(gasDate, isHoliday), data);
-        counter.innerHTML = buildBarChart(data);
-        renderShiftList(data, list, editRow);
-    } catch(e) {
-        if (e.name === 'AbortError') return;
-        counter.innerHTML = '<div style="color:#ef4444;font-size:12px;text-align:center">読み込みエラー。再度お試しください。</div>';
-    }
+// ---- シフト読み込み ----
+async function loadToday(){
+    if(currentAbortController)currentAbortController.abort();
+    currentAbortController=new AbortController();
+    const signal=currentAbortController.signal;
+    const d=getSelectedDate(),gasDate=toGasDate(d);
+    const list=document.getElementById('shift-list'),counter=document.getElementById('counter'),editRow=document.getElementById('edit-toggle-row');
+    list.innerHTML=''; editRow.classList.add('hidden');
+    const cached=loadCache(cacheKey(gasDate,isHoliday),5*60*1000);
+    if(cached){counter.innerHTML=buildBarChart(cached);renderShiftList(cached,list,editRow);return;}
+    counter.innerHTML='<div style="font-size:12px;color:#9ca3af;text-align:center">読み込み中...</div>';
+    try{
+        const url=GAS_URL+'?date='+gasDate+(isHoliday?'&holiday=1':'');
+        const res=await fetch(url,{signal});
+        if(signal.aborted)return;
+        const data=await res.json();
+        saveCache(cacheKey(gasDate,isHoliday),data);
+        counter.innerHTML=buildBarChart(data);
+        renderShiftList(data,list,editRow);
+    }catch(e){if(e.name==='AbortError')return;counter.innerHTML='<div style="color:#ef4444;font-size:12px;text-align:center">読み込みエラー</div>';}
 }
-
-function renderShiftList(data, list, editRow) {
-    list.innerHTML = '';
-    if (data.length === 0) {
-        list.innerHTML = '<div class="text-center text-gray-400 text-sm py-8">この日のシフトはありません</div>';
-    } else {
-        editRow.classList.remove('hidden');
-        data.forEach(s => list.appendChild(renderShiftCard(s)));
-    }
-
-    const addBtn = document.createElement('div');
-    addBtn.style.marginTop = '12px';
-    addBtn.innerHTML = `<button onclick="addTodaySlot()"
+function renderShiftList(data,list,editRow){
+    list.innerHTML='';
+    if(data.length===0){list.innerHTML='<div class="text-center text-gray-400 text-sm py-8">この日のシフトはありません</div>';}
+    else{editRow.classList.remove('hidden');data.forEach(s=>list.appendChild(renderShiftCard(s)));}
+    const addBtn=document.createElement('div');
+    addBtn.style.marginTop='12px';
+    addBtn.innerHTML=`<button onclick="addTodaySlot()"
         style="width:100%;font-size:14px;font-weight:700;color:#15803d;background:#f0fdf4;border:2px dashed #4ade80;border-radius:12px;padding:13px;cursor:pointer">
-        ＋ 枠を追加
-    </button>`;
+        ＋ 枠を追加</button>`;
     list.appendChild(addBtn);
 }
-
-async function addTodaySlot() {
-    const time = prompt('勤務時間を入力してください\n例: 9-18 や 6:30-15:00', '9-18');
-    if (time === null) return;
-    const brk  = prompt('休憩時間（なければ空欄でOK）\n例: 12:00-13:00', '');
-    if (brk === null) return;
-    const name = prompt('担当者名を入力してください', '');
-    if (name === null) return;
-    clearCache(cacheKey(getCurrentGasDate(), isHoliday));
-    await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'addDaily', time, brk, name, date: getCurrentGasDate(), holiday: isHoliday}) });
+async function addTodaySlot(){
+    const time=prompt('勤務時間\n例: 9-18 や 6:30-15:00','9-18');if(time===null)return;
+    const brk=prompt('休憩時間（なければ空欄）\n例: 12:00-13:00','');if(brk===null)return;
+    const name=prompt('担当者名','');if(name===null)return;
+    clearCache(cacheKey(getCurrentGasDate(),isHoliday));
+    await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'addDaily',time,brk,name,date:getCurrentGasDate(),holiday:isHoliday})});
     loadToday();
 }
-
-async function deleteDaily(id, btn) {
-    if (!confirm('この枠を削除しますか？\n（固定シフトは翌日から元に戻ります）')) return;
-    const card = btn.closest('[data-shift-id]');
-    btn.disabled = true; btn.innerText = '削除中...';
-    clearCache(cacheKey(getCurrentGasDate(), isHoliday));
-    await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'deleteDaily', id, date: getCurrentGasDate()}) });
-    card.style.opacity = '0.3';
-    setTimeout(() => loadToday(), 700);
+async function deleteDaily(id,btn){
+    if(!confirm('この枠を削除しますか？'))return;
+    const card=btn.closest('[data-shift-id]');
+    btn.disabled=true;btn.innerText='削除中...';
+    clearCache(cacheKey(getCurrentGasDate(),isHoliday));
+    await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'deleteDaily',id,date:getCurrentGasDate()})});
+    card.style.opacity='0.3';
+    setTimeout(()=>loadToday(),700);
 }
 
-// ---- 固定シフト（マスター） ----
-function changeMasterDay(delta) { masterDayIndex = (masterDayIndex + delta + 8) % 8; renderMasterDay(); }
-function jumpMasterDay(index)   { masterDayIndex = index; renderMasterDay(); }
+// ======== 代行表 ========
 
-async function loadMaster() {
-    document.getElementById('master-list').innerHTML =
-        '<div class="text-center text-gray-400 py-6 text-sm">読み込み中...</div>';
-    const cached = loadCache(CACHE_MASTER_KEY, 30 * 60 * 1000);
-    if (cached) { allMasterData = cached; renderMasterDay(); return; }
-    const res = await fetch(GAS_URL + '?mode=allMaster');
-    allMasterData = await res.json();
-    saveCache(CACHE_MASTER_KEY, allMasterData);
-    renderMasterDay();
+function calMonthStr(y,m){ return y+'/'+String(m+1).padStart(2,'0'); }
+
+async function loadDaikoMonth(){
+    const ym=calMonthStr(calYear,calMonth);
+    document.getElementById('cal-month-label').textContent = `${calYear}年${calMonth+1}月`;
+
+    // キャッシュ確認（3分）
+    const cached=loadCache(daikoCacheKey(ym),3*60*1000);
+    if(cached){daikoData=cached;renderCalendar();return;}
+
+    try{
+        const res=await fetch(GAS_URL+'?mode=daiko&month='+ym);
+        daikoData=await res.json();
+        saveCache(daikoCacheKey(ym),daikoData);
+    }catch(e){daikoData=[];}
+    renderCalendar();
 }
 
-function renderMasterDay() {
-    const day = DAYS[masterDayIndex];
-    document.getElementById('master-day-label').textContent =
-        day === '休' ? '休日' : `${day}曜日`;
+function changeCalMonth(delta){
+    selectedDate=null;
+    document.getElementById('daiko-detail').classList.add('hidden');
+    calMonth+=delta;
+    if(calMonth>11){calMonth=0;calYear++;}
+    if(calMonth<0){calMonth=11;calYear--;}
+    loadDaikoMonth();
+}
 
-    DAYS.forEach((d, i) => {
-        const btn = document.getElementById(`day-btn-${i}`);
-        if (!btn) return;
-        const isSel = i === masterDayIndex;
-        const isSat = i === 5, isSun = i === 6, isHol = i === 7;
-        if (isSel)       btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border bg-blue-600 text-white border-blue-600';
-        else if (isHol)  btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-red-500 border-red-200 hover:bg-red-50';
-        else if (isSun)  btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-red-400 border-gray-200 hover:bg-red-50';
-        else if (isSat)  btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-blue-500 border-gray-200 hover:bg-blue-50';
-        else             btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-gray-600 border-gray-200 hover:bg-gray-50';
+function renderCalendar(){
+    const grid=document.getElementById('cal-grid');
+    grid.innerHTML='';
+    const today=new Date();
+    const firstDay=new Date(calYear,calMonth,1).getDay(); // 0=Sun
+    const lastDate=new Date(calYear,calMonth+1,0).getDate();
+
+    // 募集日→ステータスマップ
+    const dayMap={};
+    daikoData.forEach(d=>{
+        const day=parseInt(d.date.split('/')[2]);
+        if(!dayMap[day]) dayMap[day]={募集中:0,決定:0};
+        dayMap[day][d.status]=(dayMap[day][d.status]||0)+1;
     });
 
-    const dayData = allMasterData.filter(d => d.day === day);
-    document.getElementById('master-counter').innerHTML = buildBarChart(dayData);
+    // 空白セル
+    for(let i=0;i<firstDay;i++){
+        const empty=document.createElement('div');
+        grid.appendChild(empty);
+    }
 
-    const list = document.getElementById('master-list');
-    if (dayData.length === 0) {
-        list.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">この曜日の枠はありません</div>';
+    for(let day=1;day<=lastDate;day++){
+        const dateStr=calMonthStr(calYear,calMonth)+'/'+String(day).padStart(2,'0');
+        const isToday=today.getFullYear()===calYear&&today.getMonth()===calMonth&&today.getDate()===day;
+        const isSel=selectedDate===dateStr;
+        const dow=(firstDay+day-1)%7; // 0=Sun,6=Sat
+
+        const cell=document.createElement('div');
+        cell.className='cal-cell'+(isSel?' selected':'')+(isToday?' today-cell':'');
+        const textColor=dow===0?'#ef4444':dow===6?'#3b82f6':'#1e293b';
+
+        let dots='';
+        if(dayMap[day]){
+            if(dayMap[day]['募集中']>0) dots+='<div style="width:6px;height:6px;border-radius:50%;background:#ef4444;display:inline-block;margin:0 1px"></div>';
+            if(dayMap[day]['決定']>0)   dots+='<div style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;margin:0 1px"></div>';
+        }
+
+        cell.innerHTML=`
+            <div style="font-size:13px;font-weight:700;color:${textColor};text-align:center;line-height:1.2">${day}</div>
+            <div style="text-align:center;margin-top:3px">${dots}</div>`;
+        cell.onclick=()=>selectCalDay(dateStr,day);
+        grid.appendChild(cell);
+    }
+}
+
+function selectCalDay(dateStr,day){
+    selectedDate=dateStr;
+    renderCalendar();
+
+    const dow=new Date(calYear,calMonth,day).getDay();
+    const dayNames=['日','月','火','水','木','金','土'];
+    document.getElementById('daiko-date-label').textContent =
+        `${calYear}年${calMonth+1}月${day}日（${dayNames[dow]}）`;
+
+    const detail=document.getElementById('daiko-detail');
+    detail.classList.remove('hidden');
+
+    const list=document.getElementById('daiko-list');
+    const items=daikoData.filter(d=>d.date===dateStr);
+
+    if(items.length===0){
+        list.innerHTML='<div class="text-center text-gray-400 text-sm py-4">この日の募集はありません</div>';
         return;
     }
-    list.innerHTML = dayData.map(d => {
-        const t   = sanitizeTime(d.time);
-        const brk = sanitizeTime(d.brk || '');
+
+    list.innerHTML=items.map(d=>{
+        const isDone=d.status==='決定';
+        const dotColor=isDone?'#10b981':'#ef4444';
+        const statusBadge=isDone
+            ?`<span style="font-size:10px;background:#d1fae5;color:#065f46;font-weight:700;padding:2px 8px;border-radius:99px">代行決定：${d.applicantName}</span>`
+            :`<span style="font-size:10px;background:#fef2f2;color:#dc2626;font-weight:700;padding:2px 8px;border-radius:99px">募集中</span>`;
+        const applyBtn=isDone?'':
+            `<button onclick="applyDaiko('${d.id}')"
+                style="margin-top:8px;width:100%;background:#2563eb;color:white;border:none;border-radius:8px;padding:8px;font-size:13px;font-weight:700;cursor:pointer">
+                代行に入る
+            </button>`;
+        return `<div style="background:#f8fafc;border-radius:10px;padding:12px;border:1px solid #e2e8f0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <div style="width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0"></div>
+                <div style="font-size:13px;font-weight:700;color:#1e293b" class="time-mono">${d.time}</div>
+                <div style="flex:1;font-size:13px;font-weight:700;color:#475569">${d.requesterName}</div>
+            </div>
+            ${statusBadge}
+            ${applyBtn}
+        </div>`;
+    }).join('');
+}
+
+async function openCreateDaiko(){
+    if(!selectedDate){alert('日付を選択してください');return;}
+    // その日のシフトを取得して選ばせる
+    const gasDate=selectedDate.replace(/\//g,'-').replace(/(\d{4})-(\d{2})-(\d{2})/,'$1/$2/$3');
+    let shiftData=[];
+    try{
+        const res=await fetch(GAS_URL+'?date='+selectedDate);
+        shiftData=await res.json();
+    }catch(e){}
+
+    if(shiftData.length===0){
+        alert('この日のシフトデータがありません。\nまずシフト確認画面で確認してください。');
+        return;
+    }
+
+    // 担当者を選ぶ
+    const options=shiftData.map((s,i)=>`${i+1}: ${s.name}（${sanitizeTime(s.time)||'時間未設定'}）`).join('\n');
+    const sel=prompt(`出られなくなった人を番号で選んでください：\n${options}`);
+    if(sel===null)return;
+    const idx=parseInt(sel)-1;
+    if(isNaN(idx)||idx<0||idx>=shiftData.length){alert('正しい番号を入力してください');return;}
+
+    const shift=shiftData[idx];
+    const confirm_msg=`以下の内容で募集を出しますか？\n日付：${selectedDate}\n名前：${shift.name}\n時間：${sanitizeTime(shift.time)||'不明'}`;
+    if(!confirm(confirm_msg))return;
+
+    try{
+        clearCache(daikoCacheKey(calMonthStr(calYear,calMonth)));
+        await fetch(GAS_URL,{method:'POST',body:JSON.stringify({
+            type:'createDaiko',
+            date:selectedDate,
+            shiftId:shift.id,
+            requesterName:shift.name,
+            time:sanitizeTime(shift.time)
+        })});
+        await loadDaikoMonth();
+        const day=parseInt(selectedDate.split('/')[2]);
+        selectCalDay(selectedDate,day);
+    }catch(e){alert('エラーが発生しました');}
+}
+
+async function applyDaiko(id){
+    const name=prompt('代行に入る人の名前を入力してください','');
+    if(!name)return;
+    if(!confirm(`「${name}」として代行申込みを確定しますか？`))return;
+    try{
+        clearCache(daikoCacheKey(calMonthStr(calYear,calMonth)));
+        await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'applyDaiko',id,applicantName:name})});
+        await loadDaikoMonth();
+        const day=parseInt(selectedDate.split('/')[2]);
+        selectCalDay(selectedDate,day);
+    }catch(e){alert('エラーが発生しました');}
+}
+
+// ======== 固定シフト ========
+function changeMasterDay(delta){masterDayIndex=(masterDayIndex+delta+7)%7;renderMasterDay();}
+function jumpMasterDay(index){masterDayIndex=index;renderMasterDay();}
+async function loadMaster(){
+    document.getElementById('master-list').innerHTML='<div class="text-center text-gray-400 py-6 text-sm">読み込み中...</div>';
+    const cached=loadCache(CACHE_MASTER_KEY,30*60*1000);
+    if(cached){allMasterData=cached;renderMasterDay();return;}
+    const res=await fetch(GAS_URL+'?mode=allMaster');
+    allMasterData=await res.json();
+    saveCache(CACHE_MASTER_KEY,allMasterData);
+    renderMasterDay();
+}
+function renderMasterDay(){
+    const day=DAYS[masterDayIndex];
+    document.getElementById('master-day-label').textContent=`${day}曜日`;
+    DAYS.forEach((_,i)=>{
+        const btn=document.getElementById(`day-btn-${i}`);if(!btn)return;
+        const isSel=i===masterDayIndex,isSat=i===5,isSun=i===6;
+        if(isSel)      btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border bg-blue-600 text-white border-blue-600';
+        else if(isSun) btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-red-500 border-gray-200 hover:bg-red-50';
+        else if(isSat) btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-blue-500 border-gray-200 hover:bg-blue-50';
+        else           btn.className='flex-1 py-1.5 rounded-lg text-xs font-bold transition border text-gray-600 border-gray-200 hover:bg-gray-50';
+    });
+    const dayData=allMasterData.filter(d=>d.day===day);
+    document.getElementById('master-counter').innerHTML=buildBarChart(dayData);
+    const list=document.getElementById('master-list');
+    if(dayData.length===0){list.innerHTML='<div class="text-center text-gray-400 text-sm py-4">この曜日の枠はありません</div>';return;}
+    list.innerHTML=dayData.map(d=>{
+        const t=sanitizeTime(d.time),brk=sanitizeTime(d.brk||'');
         return `<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
             <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:6px">
-                <div style="flex:1">
-                    <div style="font-size:10px;color:#9ca3af;margin-bottom:3px">勤務時間</div>
+                <div style="flex:1"><div style="font-size:10px;color:#9ca3af;margin-bottom:3px">勤務時間</div>
                     <input type="text" value="${t}" class="m-time"
-                        style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700;text-align:center;font-family:monospace;box-sizing:border-box"
-                        placeholder="9-18">
-                </div>
-                <div style="flex:1">
-                    <div style="font-size:10px;color:#9ca3af;margin-bottom:3px">休憩</div>
+                        style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700;text-align:center;font-family:monospace;box-sizing:border-box" placeholder="9-18"></div>
+                <div style="flex:1"><div style="font-size:10px;color:#9ca3af;margin-bottom:3px">休憩</div>
                     <input type="text" value="${brk}" class="m-brk"
-                        style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700;text-align:center;font-family:monospace;box-sizing:border-box"
-                        placeholder="12:00-13:00">
-                </div>
+                        style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700;text-align:center;font-family:monospace;box-sizing:border-box" placeholder="12:00-13:00"></div>
             </div>
             <div style="display:flex;gap:6px;align-items:flex-end">
-                <div style="flex:1">
-                    <div style="font-size:10px;color:#9ca3af;margin-bottom:3px">名前</div>
+                <div style="flex:1"><div style="font-size:10px;color:#9ca3af;margin-bottom:3px">名前</div>
                     <input type="text" value="${d.name}" class="m-name"
-                        style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700;box-sizing:border-box">
-                </div>
-                <button onclick="updateMaster('${d.row}', this)"
+                        style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700;box-sizing:border-box"></div>
+                <button onclick="updateMaster('${d.row}',this)"
                     style="background:#374151;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">保存</button>
             </div>
         </div>`;
     }).join('');
 }
-
-async function addMasterSlotCurrent() {
-    const day  = DAYS[masterDayIndex];
-    const time = prompt(`${day === '休' ? '休日' : day + '曜日'}・勤務時間\n例: 9-18 や 6:30-15:00`, '6:30-15:00');
-    if (time === null) return;
-    const brk  = prompt('休憩時間（なければ空欄）\n例: 12:00-13:00', '');
-    if (brk === null) return;
-    const name = prompt('担当者名', '未定');
-    if (name === null) return;
+async function addMasterSlotCurrent(){
+    const day=DAYS[masterDayIndex];
+    const time=prompt(`${day}曜日・勤務時間\n例: 9-18 や 6:30-15:00`,'9-18');if(time===null)return;
+    const brk=prompt('休憩時間（なければ空欄）\n例: 12:00-13:00','');if(brk===null)return;
+    const name=prompt('担当者名','未定');if(name===null)return;
     clearCache(CACHE_MASTER_KEY);
-    const res  = await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'addMaster', day, time, brk, name, pass: savedAdminPass}) });
-    const text = await res.text();
-    if (text === 'auth_error') { alert('セッション切れです。再読み込みしてください。'); location.reload(); return; }
+    const res=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'addMaster',day,time,brk,name,pass:savedAdminPass})});
+    const text=await res.text();
+    if(text==='auth_error'){alert('セッション切れです。再読み込みしてください。');location.reload();return;}
     await loadMaster();
 }
-
-async function updateMaster(row, btn) {
-    const card = btn.closest('.bg-white.rounded-xl');
-    const time  = card.querySelector('.m-time').value;
-    const brk   = card.querySelector('.m-brk').value;
-    const name  = card.querySelector('.m-name').value;
-    const orig  = btn.innerText;
-    btn.innerText = '⏳'; btn.disabled = true;
+async function updateMaster(row,btn){
+    const card=btn.closest('.bg-white.rounded-xl');
+    const time=card.querySelector('.m-time').value,brk=card.querySelector('.m-brk').value,name=card.querySelector('.m-name').value;
+    const orig=btn.innerText;btn.innerText='⏳';btn.disabled=true;
     clearCache(CACHE_MASTER_KEY);
-    const res  = await fetch(GAS_URL, { method:'POST', body: JSON.stringify({type:'directMaster', row, time, brk, name, pass: savedAdminPass}) });
-    const text = await res.text();
-    if (text === 'auth_error') { alert('セッション切れです。再読み込みしてください。'); location.reload(); return; }
-    const idx = allMasterData.findIndex(d => String(d.row) === String(row));
-    if (idx >= 0) { allMasterData[idx].time = time; allMasterData[idx].brk = brk; allMasterData[idx].name = name; }
-    saveCache(CACHE_MASTER_KEY, allMasterData);
-    btn.innerText = '完了!'; btn.style.background = '#16a34a';
-    setTimeout(() => { btn.innerText = orig; btn.style.background = '#374151'; btn.disabled = false; }, 1500);
+    const res=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'directMaster',row,time,brk,name,pass:savedAdminPass})});
+    const text=await res.text();
+    if(text==='auth_error'){alert('セッション切れです。再読み込みしてください。');location.reload();return;}
+    const idx=allMasterData.findIndex(d=>String(d.row)===String(row));
+    if(idx>=0){allMasterData[idx].time=time;allMasterData[idx].brk=brk;allMasterData[idx].name=name;}
+    saveCache(CACHE_MASTER_KEY,allMasterData);
+    btn.innerText='完了!';btn.style.background='#16a34a';
+    setTimeout(()=>{btn.innerText=orig;btn.style.background='#374151';btn.disabled=false;},1500);
 }
 
 loadToday();
