@@ -370,13 +370,28 @@ function cancelEditMode(){
 async function bulkSave(){
     const btn=document.getElementById('bulk-save-btn');
     btn.innerText='保存中...'; btn.disabled=true;
+
+    // 変更があった枠だけ抽出（元の値と比較）
     const items=[];
     document.querySelectorAll('#shift-list [data-shift-id]').forEach(card=>{
-        items.push({id:card.dataset.shiftId,
-            time:card.querySelector('.time-input').value,
-            brk:card.querySelector('.brk-input').value,
-            name:card.querySelector('.name-input').value});
+        const curTime = card.querySelector('.time-input').value.trim();
+        const curBrk  = card.querySelector('.brk-input').value.trim();
+        const curName = card.querySelector('.name-input').value.trim();
+        const origTime = card.dataset.origTime || '';
+        const origBrk  = card.dataset.origBrk  || '';
+        const origName = card.dataset.origName  || '';
+        // いずれか1つでも変わっていたら対象に含める
+        if(curTime !== origTime || curBrk !== origBrk || curName !== origName){
+            items.push({id:card.dataset.shiftId, time:curTime, brk:curBrk, name:curName});
+        }
     });
+
+    if(items.length === 0){
+        cancelEditMode();
+        btn.innerText='保存する'; btn.disabled=false;
+        return;
+    }
+
     try {
         clearCache(cacheKey(getCurrentGasDate()));
         await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'dailyBulk',items,date:getCurrentGasDate()})});
@@ -390,6 +405,9 @@ function renderShiftCard(s){
     const time=sanitizeTime(s.time), brk=sanitizeTime(s.brk||'');
     const card=document.createElement('div');
     card.dataset.shiftId=s.id;
+    card.dataset.origTime=time;
+    card.dataset.origBrk=brk;
+    card.dataset.origName=s.name;
     const bc=s.isTodayOnly?'#86efac':s.isChanged?'#fde68a':'#e5e7eb';
     const badge=s.isTodayOnly
         ?'<span style="font-size:10px;background:#dcfce7;color:#15803d;font-weight:700;padding:2px 7px;border-radius:99px">追加枠</span>'
