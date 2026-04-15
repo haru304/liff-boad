@@ -13,23 +13,12 @@
         .edit-mode .edit-input { display:block; }
         .edit-mode .view-text { display:none; }
         #save-bar { display:none; }
-        #edit-overlay {
-            display:none;
-            position:fixed;
-            inset:0;
-            background:rgba(0,0,0,0.25);
-            z-index:40;
-        }
-        #edit-overlay.active { display:block; }
-        #save-bar { z-index:50; }
         .cal-cell { min-height:52px; cursor:pointer; border-radius:8px; padding:4px; transition:background 0.15s; }
         .cal-cell:hover { background:#f1f5f9; }
         .cal-cell.selected { background:#eff6ff; outline:2px solid #3b82f6; }
     </style>
 </head>
 <body class="bg-gray-100 pb-20">
-<!-- 編集中オーバーレイ（保存バー以外をブロック） -->
-<div id="edit-overlay" onclick="showEditWarning()"></div>
 <div class="max-w-md mx-auto p-4">
 
     <!-- ===== シフト確認 ===== -->
@@ -369,14 +358,7 @@ function enterEditMode(){
     document.getElementById('edit-toggle-btn').style.background='#fee2e2';
     document.getElementById('edit-toggle-btn').style.color='#dc2626';
     document.getElementById('save-bar').style.display='flex';
-    document.getElementById('edit-overlay').classList.add('active');
-}
-function showEditWarning(){
-    // オーバーレイをタップしたとき：保存かキャンセルを促す
-    const bar = document.getElementById('save-bar');
-    bar.style.outline='3px solid #ef4444';
-    bar.style.borderRadius='8px';
-    setTimeout(()=>{ bar.style.outline='none'; }, 800);
+    setNavLock(true);
 }
 function cancelEditMode(){
     isEditMode=false;
@@ -385,7 +367,34 @@ function cancelEditMode(){
     const b=document.getElementById('edit-toggle-btn');
     if(b){b.textContent='変更する';b.style.background='#f3f4f6';b.style.color='#374151';}
     document.getElementById('save-bar').style.display='none';
-    document.getElementById('edit-overlay').classList.remove('active');
+    setNavLock(false);
+}
+
+// 編集中にタブ・日付ナビ・休日トグルをロック/アンロック
+function setNavLock(lock){
+    const targets = [
+        'tab-today','tab-daiko','tab-master',
+        'date-picker','holiday-toggle'
+    ];
+    targets.forEach(id=>{
+        const el=document.getElementById(id);
+        if(!el) return;
+        if(lock){
+            el.dataset.wasDisabled = el.disabled ? '1' : '0';
+            el.disabled=true;
+            el.style.opacity='0.4';
+            el.style.pointerEvents='none';
+        } else {
+            el.disabled = el.dataset.wasDisabled === '1';
+            el.style.opacity='';
+            el.style.pointerEvents='';
+        }
+    });
+    // 日付の矢印ボタンはdisabledが効かないのでpointerEventsで制御
+    document.querySelectorAll('#view-today .rounded-lg.px-3').forEach(btn=>{
+        btn.style.pointerEvents = lock ? 'none' : '';
+        btn.style.opacity = lock ? '0.4' : '';
+    });
 }
 async function bulkSave(){
     const btn=document.getElementById('bulk-save-btn');
