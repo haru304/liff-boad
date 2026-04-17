@@ -9,10 +9,10 @@
         .active-tab { border-top: 4px solid #3b82f6; background: white; color: #3b82f6; }
         input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
         .time-mono { font-family: 'Courier New', Courier, monospace; }
-        .edit-input { display:none; }
-        .edit-mode .edit-input { display:block; }
-        .edit-mode .view-text { display:none; }
         #save-bar { display:none; }
+        .shift-row input { background:transparent; border:none; outline:none; font-family:'Courier New',monospace; font-weight:700; width:100%; padding:0; }
+        .shift-row input:focus { background:#eff6ff; border-radius:4px; }
+        .shift-row.dirty { background:#fefce8 !important; border-color:#fde68a !important; }
         .cal-cell { min-height:52px; cursor:pointer; border-radius:8px; padding:4px; transition:background 0.15s; }
         .cal-cell:hover { background:#f1f5f9; }
         .cal-cell.selected { background:#eff6ff; outline:2px solid #3b82f6; }
@@ -48,12 +48,7 @@
         </div>
 
         <!-- 変更ボタン -->
-        <div id="edit-toggle-row" class="hidden justify-end mb-2">
-            <button id="edit-toggle-btn" onclick="toggleEditMode()"
-                style="font-size:12px;font-weight:700;color:#374151;background:#f3f4f6;border:none;border-radius:8px;padding:7px 16px;cursor:pointer">
-                変更する
-            </button>
-        </div>
+
 
         <!-- シフト一覧 -->
         <div id="shift-list" class="space-y-2"></div>
@@ -147,7 +142,7 @@
 <div id="save-bar" class="fixed items-center justify-between gap-3 left-0 right-0 bg-white border-t-2 border-blue-400 px-4 py-3 shadow-lg" style="bottom:64px;max-width:448px;margin:0 auto">
     <div style="font-size:13px;font-weight:700;color:#1e40af">変更中</div>
     <div style="display:flex;gap:8px">
-        <button onclick="cancelEditMode()" style="font-size:13px;font-weight:700;color:#6b7280;background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer">キャンセル</button>
+        <button onclick="cancelEditMode()" style="font-size:13px;font-weight:700;color:#6b7280;background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer">元に戻す</button>
         <button onclick="bulkSave()" id="bulk-save-btn" style="font-size:13px;font-weight:700;color:white;background:#2563eb;border:none;border-radius:8px;padding:8px 20px;cursor:pointer">保存する</button>
     </div>
 </div>
@@ -172,7 +167,6 @@ const DAYS = ['月','火','水','木','金','土','日'];
 let masterDayIndex = 0;
 let allMasterData  = [];
 let currentAbortController = null;
-let isEditMode = false;
 let isHoliday  = false;
 let calYear, calMonth;
 let selectedDate = null;
@@ -227,11 +221,11 @@ function updateDateLabel(d) {
 }
 function getSelectedDate() { return parseDateSafe(document.getElementById('date-picker').value); }
 function onDateChange() {
-    cancelEditMode(); isHoliday = false; updateHolidayToggle();
+    resetSaveBar(); isHoliday = false; updateHolidayToggle();
     updateDateLabel(getSelectedDate()); loadToday();
 }
 function changeDate(delta) {
-    cancelEditMode(); isHoliday = false; updateHolidayToggle();
+    resetSaveBar(); isHoliday = false; updateHolidayToggle();
     const d = getSelectedDate(); d.setDate(d.getDate() + delta);
     document.getElementById('date-picker').value = toInputDate(d);
     updateDateLabel(d); loadToday();
@@ -317,7 +311,7 @@ function buildBarChart(data, holiday) {
 
 // ---- タブ ----
 function switchTab(tab) {
-    cancelEditMode();
+    resetSaveBar();
     ['today','daiko','master'].forEach(t => {
         document.getElementById('view-'+t).classList.toggle('hidden', t!==tab);
         document.getElementById('tab-'+t).classList.toggle('active-tab', t===tab);
@@ -350,136 +344,102 @@ async function unlockMaster() {
 }
 
 // ---- 編集モード ----
-function toggleEditMode(){ isEditMode ? cancelEditMode() : enterEditMode(); }
-function enterEditMode(){
-    isEditMode=true;
-    document.getElementById('shift-list').classList.add('edit-mode');
-    document.getElementById('edit-toggle-btn').textContent='編集中...';
-    document.getElementById('edit-toggle-btn').style.background='#fee2e2';
-    document.getElementById('edit-toggle-btn').style.color='#dc2626';
-    document.getElementById('save-bar').style.display='flex';
-    setNavLock(true);
+// 変更を検知して保存バーを表示/非表示
+function onFieldChange(card){
+    const curTime = card.querySelector('.time-input').value.trim();
+    const curBrk  = card.querySelector('.brk-input').value.trim();
+    const curName = card.querySelector('.name-input').value.trim();
+    const dirty = curTime!==card.dataset.origTime || curBrk!==card.dataset.origBrk || curName!==card.dataset.origName;
+    card.classList.toggle('dirty', dirty);
+    updateSaveBar();
 }
-function cancelEditMode(){
-    isEditMode=false;
-    const sl=document.getElementById('shift-list');
-    if(sl) sl.classList.remove('edit-mode');
-    const b=document.getElementById('edit-toggle-btn');
-    if(b){b.textContent='変更する';b.style.background='#f3f4f6';b.style.color='#374151';}
+function updateSaveBar(){
+    const anyDirty = document.querySelectorAll('#shift-list .shift-row.dirty').length > 0;
+    document.getElementById('save-bar').style.display = anyDirty ? 'flex' : 'none';
+}
+function resetSaveBar(){
+    document.querySelectorAll('#shift-list .shift-row.dirty').forEach(c=>c.classList.remove('dirty'));
     document.getElementById('save-bar').style.display='none';
-    setNavLock(false);
-}
-
-// 編集中にタブ・日付ナビ・休日トグルをロック/アンロック
-function setNavLock(lock){
-    const targets = [
-        'tab-today','tab-daiko','tab-master',
-        'date-picker','holiday-toggle'
-    ];
-    targets.forEach(id=>{
-        const el=document.getElementById(id);
-        if(!el) return;
-        if(lock){
-            el.dataset.wasDisabled = el.disabled ? '1' : '0';
-            el.disabled=true;
-            el.style.opacity='0.4';
-            el.style.pointerEvents='none';
-        } else {
-            el.disabled = el.dataset.wasDisabled === '1';
-            el.style.opacity='';
-            el.style.pointerEvents='';
-        }
-    });
-    // 日付の矢印ボタンはdisabledが効かないのでpointerEventsで制御
-    document.querySelectorAll('#view-today .rounded-lg.px-3').forEach(btn=>{
-        btn.style.pointerEvents = lock ? 'none' : '';
-        btn.style.opacity = lock ? '0.4' : '';
-    });
 }
 async function bulkSave(){
     const btn=document.getElementById('bulk-save-btn');
     btn.innerText='保存中...'; btn.disabled=true;
 
-    // 変更があった枠だけ抽出（元の値と比較）
+    // dirty フラグが立っている枠だけ送信
     const items=[];
-    document.querySelectorAll('#shift-list [data-shift-id]').forEach(card=>{
-        const curTime = card.querySelector('.time-input').value.trim();
-        const curBrk  = card.querySelector('.brk-input').value.trim();
-        const curName = card.querySelector('.name-input').value.trim();
-        const origTime = card.dataset.origTime || '';
-        const origBrk  = card.dataset.origBrk  || '';
-        const origName = card.dataset.origName  || '';
-        // いずれか1つでも変わっていたら対象に含める
-        if(curTime !== origTime || curBrk !== origBrk || curName !== origName){
-            items.push({id:card.dataset.shiftId, time:curTime, brk:curBrk, name:curName});
-        }
+    document.querySelectorAll('#shift-list .shift-row.dirty').forEach(card=>{
+        items.push({
+            id:   card.dataset.shiftId,
+            time: card.querySelector('.time-input').value.trim(),
+            brk:  card.querySelector('.brk-input').value.trim(),
+            name: card.querySelector('.name-input').value.trim()
+        });
     });
 
-    if(items.length === 0){
-        cancelEditMode();
-        btn.innerText='保存する'; btn.disabled=false;
-        return;
-    }
+    if(items.length===0){ resetSaveBar(); btn.innerText='保存する'; btn.disabled=false; return; }
 
-    try {
+    try{
         clearCache(cacheKey(getCurrentGasDate()));
         await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'dailyBulk',items,date:getCurrentGasDate()})});
-        cancelEditMode(); loadToday();
-    } catch(e){alert('保存エラー');}
-    finally{btn.innerText='保存する';btn.disabled=false;}
+        resetSaveBar();
+        loadToday();
+    }catch(e){alert('保存エラー');}
+    finally{btn.innerText='保存する'; btn.disabled=false;}
 }
 
-// ---- シフトカード描画 ----
+// ---- シフト行描画（常時編集可能なコンパクト行） ----
 function renderShiftCard(s){
     const time=sanitizeTime(s.time), brk=sanitizeTime(s.brk||'');
     const card=document.createElement('div');
+    card.className='shift-row';
     card.dataset.shiftId=s.id;
     card.dataset.origTime=time;
     card.dataset.origBrk=brk;
     card.dataset.origName=s.name;
+
     const bc=s.isTodayOnly?'#86efac':s.isChanged?'#fde68a':'#e5e7eb';
-    const badge=s.isTodayOnly
-        ?'<span style="font-size:10px;background:#dcfce7;color:#15803d;font-weight:700;padding:2px 7px;border-radius:99px">追加枠</span>'
+    const dot=s.isTodayOnly
+        ?'<div style="width:7px;height:7px;border-radius:50%;background:#22c55e;flex-shrink:0"></div>'
         :s.isChanged
-        ?'<span style="font-size:10px;background:#fef9c3;color:#a16207;font-weight:700;padding:2px 7px;border-radius:99px">変更済</span>'
-        :'';
-    const brkBadge=brk?`<span style="font-size:10px;background:#f3f4f6;color:#6b7280;padding:2px 6px;border-radius:99px">休憩 ${brk}</span>`:'';
-    card.style.cssText=`background:white;border-radius:12px;border:1.5px solid ${bc};overflow:hidden;`;
+        ?'<div style="width:7px;height:7px;border-radius:50%;background:#f59e0b;flex-shrink:0"></div>'
+        :'<div style="width:7px;height:7px;border-radius:50%;background:#cbd5e1;flex-shrink:0"></div>';
+
+    card.style.cssText=`background:white;border-radius:10px;border:1.5px solid ${bc};padding:8px 10px;`;
+
     card.innerHTML=`
-        <div class="view-text" style="display:flex;align-items:center;padding:11px 14px;gap:10px">
-            <div class="time-mono" style="width:96px;min-width:96px;font-size:15px;font-weight:800;color:#1e293b;white-space:nowrap">${time||'未設定'}</div>
-            <div style="flex:1;min-width:0">
-                <div style="font-size:15px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
-                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${badge}${brkBadge}</div>
-            </div>
-        </div>
-        <div class="edit-input" style="padding:12px 14px">
-            <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px">${s.name}</div>
-            <div style="display:flex;gap:8px;margin-bottom:8px">
-                <div style="flex:1">
-                    <div style="font-size:10px;color:#94a3b8;margin-bottom:3px;font-weight:600">勤務時間</div>
-                    <input type="text" value="${time}" class="time-input"
-                        style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:7px;font-size:14px;font-weight:700;text-align:center;box-sizing:border-box;font-family:monospace"
-                        placeholder="9-18">
-                </div>
-                <div style="flex:1">
-                    <div style="font-size:10px;color:#94a3b8;margin-bottom:3px;font-weight:600">休憩</div>
-                    <input type="text" value="${brk}" class="brk-input"
-                        style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:7px;font-size:14px;font-weight:700;text-align:center;box-sizing:border-box;font-family:monospace"
-                        placeholder="12:00-13:00">
-                </div>
-            </div>
-            <div style="margin-bottom:8px">
-                <div style="font-size:10px;color:#94a3b8;margin-bottom:3px;font-weight:600">名前</div>
-                <input type="text" value="${s.name}" class="name-input"
-                    style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:7px;font-size:14px;font-weight:700;box-sizing:border-box">
-            </div>
-            <button onclick="deleteDaily('${s.id}',this)"
-                style="width:100%;background:#fef2f2;color:#ef4444;border:1.5px solid #fca5a5;border-radius:8px;padding:7px;font-size:12px;font-weight:700;cursor:pointer">
-                この枠を削除
+        <div style="display:flex;align-items:center;gap:6px">
+            ${dot}
+            <input type="text" value="${time}" class="time-input"
+                style="width:88px;min-width:88px;font-size:14px;color:#1e293b;padding:3px 4px;border-radius:4px;font-family:monospace;font-weight:700"
+                placeholder="9-18">
+            <input type="text" value="${s.name}" class="name-input"
+                style="flex:1;font-size:14px;color:#1e293b;padding:3px 4px;border-radius:4px;font-weight:700;min-width:0"
+                placeholder="名前">
+            <button onclick="toggleBrk(this)" title="休憩"
+                style="font-size:11px;color:#94a3b8;background:none;border:none;padding:2px 4px;cursor:pointer;flex-shrink:0">
+                休憩${brk?'▲':'▼'}
             </button>
+            <button onclick="deleteDaily('${s.id}',this)"
+                style="font-size:12px;color:#fca5a5;background:none;border:none;padding:2px 4px;cursor:pointer;flex-shrink:0">✕</button>
+        </div>
+        <div class="brk-row" style="display:${brk?'flex':'none'};align-items:center;gap:6px;margin-top:5px;padding-left:13px">
+            <span style="font-size:10px;color:#94a3b8;flex-shrink:0">休憩</span>
+            <input type="text" value="${brk}" class="brk-input"
+                style="width:110px;font-size:13px;color:#64748b;padding:3px 4px;border-radius:4px;font-family:monospace;font-weight:600"
+                placeholder="12:00-13:00">
         </div>`;
+
+    // 変更検知
+    card.querySelectorAll('input').forEach(inp=>{
+        inp.addEventListener('input', ()=>onFieldChange(card));
+    });
     return card;
+}
+function toggleBrk(btn){
+    const row=btn.closest('.shift-row').querySelector('.brk-row');
+    const open=row.style.display==='flex';
+    row.style.display=open?'none':'flex';
+    btn.textContent='休憩'+(open?'▼':'▲');
 }
 
 // ---- シフト読み込み ----
@@ -488,10 +448,10 @@ async function loadToday(){
     currentAbortController = new AbortController();
     const signal = currentAbortController.signal;
     const d=getSelectedDate(), gasDate=toGasDate(d);
-    const list=document.getElementById('shift-list'), counter=document.getElementById('counter'), editRow=document.getElementById('edit-toggle-row');
-    list.innerHTML=''; editRow.classList.add('hidden');
+    const list=document.getElementById('shift-list'), counter=document.getElementById('counter');
+    list.innerHTML='';
     const cached=loadCache(cacheKey(gasDate), 5*60*1000);
-    if(cached){ counter.innerHTML=buildBarChart(cached,isHoliday); renderShiftList(cached,list,editRow); return; }
+    if(cached){ counter.innerHTML=buildBarChart(cached,isHoliday); renderShiftList(cached,list); return; }
     counter.innerHTML='<div style="font-size:12px;color:#9ca3af;text-align:center">読み込み中...</div>';
     try{
         const res=await fetch(GAS_URL+'?date='+gasDate,{signal});
@@ -499,17 +459,17 @@ async function loadToday(){
         const data=await res.json();
         saveCache(cacheKey(gasDate), data);
         counter.innerHTML=buildBarChart(data, isHoliday);
-        renderShiftList(data, list, editRow);
+        renderShiftList(data, list);
     }catch(e){if(e.name==='AbortError')return; counter.innerHTML='<div style="color:#ef4444;font-size:12px;text-align:center">読み込みエラー</div>';}
 }
-function renderShiftList(data, list, editRow){
+function renderShiftList(data, list){
     list.innerHTML='';
     if(data.length===0){ list.innerHTML='<div class="text-center text-gray-400 text-sm py-8">この日のシフトはありません</div>'; }
-    else{ editRow.classList.remove('hidden'); data.forEach(s=>list.appendChild(renderShiftCard(s))); }
+    else{ data.forEach(s=>list.appendChild(renderShiftCard(s))); }
     const addBtn=document.createElement('div');
-    addBtn.style.marginTop='12px';
+    addBtn.style.marginTop='10px';
     addBtn.innerHTML=`<button onclick="addTodaySlot()"
-        style="width:100%;font-size:14px;font-weight:700;color:#15803d;background:#f0fdf4;border:2px dashed #4ade80;border-radius:12px;padding:13px;cursor:pointer">
+        style="width:100%;font-size:13px;font-weight:700;color:#15803d;background:#f0fdf4;border:2px dashed #4ade80;border-radius:10px;padding:10px;cursor:pointer">
         ＋ 枠を追加</button>`;
     list.appendChild(addBtn);
 }
