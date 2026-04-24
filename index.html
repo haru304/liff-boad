@@ -757,6 +757,8 @@ function renderMasterDay(){
                     style="font-size:11px;color:#94a3b8;background:none;border:none;padding:2px 4px;cursor:pointer;flex-shrink:0">
                     休憩${brk?'▲':'▼'}
                 </button>
+                <button onclick="deleteMasterRow(this)"
+                    style="font-size:12px;color:#fca5a5;background:none;border:none;padding:2px 4px;cursor:pointer;flex-shrink:0">✕</button>
             </div>
             <div class="m-brk-row" style="display:${brk?'flex':'none'};align-items:center;gap:6px;margin-top:5px;padding-left:12px">
                 <span style="font-size:10px;color:#94a3b8;flex-shrink:0">休憩</span>
@@ -787,6 +789,31 @@ function toggleMasterBrk(btn){
     row.style.display=open?'none':'flex';
     btn.textContent='休憩'+(open?'▼':'▲');
 }
+function deleteMasterRow(btn){
+    const row=btn.closest('.master-row');
+    const isMarked=row.dataset.pendingDelete==='1';
+    if(isMarked){
+        // 削除取り消し
+        row.dataset.pendingDelete='0';
+        row.style.opacity='1';
+        row.style.textDecoration='none';
+        row.style.background='white';
+        btn.textContent='✕';
+        btn.style.color='#fca5a5';
+        row.classList.remove('dirty');
+        updateMasterSaveBar();
+    } else {
+        // 削除予定マーク
+        row.dataset.pendingDelete='1';
+        row.style.opacity='0.5';
+        row.style.textDecoration='line-through';
+        row.style.background='#fef2f2';
+        btn.textContent='↩';
+        btn.style.color='#ef4444';
+        row.classList.add('dirty');
+        updateMasterSaveBar();
+    }
+}
 function onMasterFieldChange(row){
     const curTime=row.querySelector('.m-time').value.trim();
     const curBrk =row.querySelector('.m-brk').value.trim();
@@ -802,10 +829,19 @@ function updateMasterSaveBar(){
 function resetMasterSaveBar(){
     document.querySelectorAll('#master-list .master-row.dirty').forEach(row=>{
         row.classList.remove('dirty');
+        // 削除予定を取り消す
+        if(row.dataset.pendingDelete==='1'){
+            row.dataset.pendingDelete='0';
+            row.style.opacity='1';
+            row.style.textDecoration='none';
+            row.style.background='white';
+            const delBtn=row.querySelector('button[onclick*="deleteMasterRow"]');
+            if(delBtn){delBtn.textContent='✕';delBtn.style.color='#fca5a5';}
+        }
+        // 入力値を元に戻す
         row.querySelector('.m-time').value=row.dataset.origTime;
         row.querySelector('.m-brk').value=row.dataset.origBrk;
         row.querySelector('.m-name').value=row.dataset.origName;
-        // brkの表示状態も元に戻す
         const brkRow=row.querySelector('.m-brk-row');
         const brkBtn=row.querySelector('button[onclick*="toggleMasterBrk"]');
         const hasBrk=!!row.dataset.origBrk;
@@ -817,27 +853,37 @@ function resetMasterSaveBar(){
 async function bulkSaveMaster(){
     const btn=document.getElementById('master-save-btn');
     btn.innerText='保存中...'; btn.disabled=true;
-    const items=[];
+
+    const toChange=[], toDelete=[];
     document.querySelectorAll('#master-list .master-row.dirty').forEach(row=>{
-        items.push({
-            row:  row.dataset.masterRow,
-            time: row.querySelector('.m-time').value.trim(),
-            brk:  row.querySelector('.m-brk').value.trim(),
-            name: row.querySelector('.m-name').value.trim()
-        });
+        if(row.dataset.pendingDelete==='1'){
+            toDelete.push(Number(row.dataset.masterRow));
+        } else {
+            toChange.push({
+                row:  row.dataset.masterRow,
+                time: row.querySelector('.m-time').value.trim(),
+                brk:  row.querySelector('.m-brk').value.trim(),
+                name: row.querySelector('.m-name').value.trim()
+            });
+        }
     });
-    if(items.length===0){resetMasterSaveBar();btn.innerText='保存する';btn.disabled=false;return;}
+
+    if(toChange.length===0&&toDelete.length===0){
+        resetMasterSaveBar();btn.innerText='保存する';btn.disabled=false;return;
+    }
     try{
         clearCache(CACHE_MASTER_KEY);
-        await Promise.all(items.map(item=>
+        // 変更を並列送信
+        const promises=toChange.map(item=>
             fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'directMaster',row:item.row,time:item.time,brk:item.brk,name:item.name,pass:savedAdminPass})})
-        ));
-        // ローカルキャッシュ更新
-        items.forEach(item=>{
-            const idx=allMasterData.findIndex(d=>String(d.row)===String(item.row));
-            if(idx>=0){allMasterData[idx].time=item.time;allMasterData[idx].brk=item.brk;allMasterData[idx].name=item.name;}
-        });
-        saveCache(CACHE_MASTER_KEY,allMasterData);
+        );
+        // 削除は行番号降順でシリアルに実行（行番号ズレ防止）
+        await Promise.all(promises);
+        const sortedDel=toDelete.sort((a,b)=>b-a);
+        for(const rowNum of sortedDel){
+            await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'deleteMasterRow',row:rowNum,pass:savedAdminPass})});
+        }
+        clearCache(CACHE_MASTER_KEY);
         resetMasterSaveBar();
         await loadMaster();
     }catch(e){alert('保存エラー');}
