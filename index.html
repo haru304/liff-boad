@@ -358,29 +358,54 @@ function updateSaveBar(){
     document.getElementById('save-bar').style.display = anyDirty ? 'flex' : 'none';
 }
 function resetSaveBar(){
-    document.querySelectorAll('#shift-list .shift-row.dirty').forEach(c=>c.classList.remove('dirty'));
+    document.querySelectorAll('#shift-list .shift-row.dirty').forEach(card=>{
+        card.classList.remove('dirty');
+        // 削除予定を取り消す
+        if(card.dataset.pendingDelete==='1'){
+            card.dataset.pendingDelete='0';
+            card.style.opacity='1';
+            card.style.textDecoration='none';
+            card.style.background='white';
+            const delBtn=card.querySelector('button[onclick*="deleteDaily"]');
+            if(delBtn){ delBtn.textContent='✕'; delBtn.style.color='#fca5a5'; }
+        }
+    });
     document.getElementById('save-bar').style.display='none';
 }
 async function bulkSave(){
     const btn=document.getElementById('bulk-save-btn');
     btn.innerText='保存中...'; btn.disabled=true;
 
-    // dirty フラグが立っている枠だけ送信
-    const items=[];
+    const changed=[];
+    const toDelete=[];
+
     document.querySelectorAll('#shift-list .shift-row.dirty').forEach(card=>{
-        items.push({
-            id:   card.dataset.shiftId,
-            time: card.querySelector('.time-input').value.trim(),
-            brk:  card.querySelector('.brk-input').value.trim(),
-            name: card.querySelector('.name-input').value.trim()
-        });
+        if(card.dataset.pendingDelete==='1'){
+            toDelete.push(card.dataset.shiftId);
+        } else {
+            changed.push({
+                id:   card.dataset.shiftId,
+                time: card.querySelector('.time-input').value.trim(),
+                brk:  card.querySelector('.brk-input').value.trim(),
+                name: card.querySelector('.name-input').value.trim()
+            });
+        }
     });
 
-    if(items.length===0){ resetSaveBar(); btn.innerText='保存する'; btn.disabled=false; return; }
+    if(changed.length===0 && toDelete.length===0){
+        resetSaveBar(); btn.innerText='保存する'; btn.disabled=false; return;
+    }
 
     try{
         clearCache(cacheKey(getCurrentGasDate()));
-        await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'dailyBulk',items,date:getCurrentGasDate()})});
+        const promises=[];
+        if(changed.length>0){
+            promises.push(fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'dailyBulk',items:changed,date:getCurrentGasDate()})}));
+        }
+        toDelete.forEach(id=>{
+            promises.push(fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'deleteDaily',id,date:getCurrentGasDate()})}));
+        });
+        await Promise.all(promises);
         resetSaveBar();
         loadToday();
     }catch(e){alert('保存エラー');}
@@ -481,14 +506,30 @@ async function addTodaySlot(){
     await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'addDaily',time,brk,name,date:getCurrentGasDate()})});
     loadToday();
 }
-async function deleteDaily(id,btn){
-    if(!confirm('この枠を削除しますか？')) return;
-    const card=btn.closest('[data-shift-id]');
-    btn.disabled=true; btn.innerText='削除中...';
-    clearCache(cacheKey(getCurrentGasDate()));
-    await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'deleteDaily',id,date:getCurrentGasDate()})});
-    card.style.opacity='0.3';
-    setTimeout(()=>loadToday(), 700);
+function deleteDaily(id, btn){
+    const card = btn.closest('.shift-row');
+    const isMarked = card.dataset.pendingDelete === '1';
+    if(isMarked){
+        // 削除取り消し
+        card.dataset.pendingDelete = '0';
+        card.style.opacity = '1';
+        card.style.textDecoration = 'none';
+        card.style.background = 'white';
+        btn.textContent = '✕';
+        btn.style.color = '#fca5a5';
+        card.classList.remove('dirty');
+        updateSaveBar();
+    } else {
+        // 削除予定としてマーク
+        card.dataset.pendingDelete = '1';
+        card.style.opacity = '0.5';
+        card.style.textDecoration = 'line-through';
+        card.style.background = '#fef2f2';
+        btn.textContent = '↩';
+        btn.style.color = '#ef4444';
+        card.classList.add('dirty');
+        updateSaveBar();
+    }
 }
 
 // ======== 代行表 ========
