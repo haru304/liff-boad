@@ -13,6 +13,9 @@
         .shift-row input { background:transparent; border:none; outline:none; font-family:'Courier New',monospace; font-weight:700; width:100%; padding:0; }
         .shift-row input:focus { background:#eff6ff; border-radius:4px; }
         .shift-row.dirty { background:#fefce8 !important; border-color:#fde68a !important; }
+        .master-row input { background:transparent; border:none; outline:none; font-weight:700; width:100%; padding:0; }
+        .master-row input:focus { background:#f5f3ff; border-radius:4px; }
+        .master-row.dirty { background:#faf5ff !important; border-color:#c4b5fd !important; }
         .cal-cell { min-height:52px; cursor:pointer; border-radius:8px; padding:4px; transition:background 0.15s; }
         .cal-cell:hover { background:#f1f5f9; }
         .cal-cell.selected { background:#eff6ff; outline:2px solid #3b82f6; }
@@ -138,12 +141,21 @@
     </div>
 </div>
 
-<!-- 一括保存バー -->
+<!-- シフト一括保存バー -->
 <div id="save-bar" class="fixed items-center justify-between gap-3 left-0 right-0 bg-white border-t-2 border-blue-400 px-4 py-3 shadow-lg" style="bottom:64px;max-width:448px;margin:0 auto">
     <div style="font-size:13px;font-weight:700;color:#1e40af">変更中</div>
     <div style="display:flex;gap:8px">
-        <button onclick="cancelEditMode()" style="font-size:13px;font-weight:700;color:#6b7280;background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer">元に戻す</button>
+        <button onclick="resetSaveBar()" style="font-size:13px;font-weight:700;color:#6b7280;background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer">元に戻す</button>
         <button onclick="bulkSave()" id="bulk-save-btn" style="font-size:13px;font-weight:700;color:white;background:#2563eb;border:none;border-radius:8px;padding:8px 20px;cursor:pointer">保存する</button>
+    </div>
+</div>
+
+<!-- 固定シフト一括保存バー -->
+<div id="master-save-bar" class="fixed items-center justify-between gap-3 left-0 right-0 bg-white border-t-2 border-purple-400 px-4 py-3 shadow-lg" style="bottom:64px;max-width:448px;margin:0 auto;display:none">
+    <div style="font-size:13px;font-weight:700;color:#7c3aed">固定シフト変更中</div>
+    <div style="display:flex;gap:8px">
+        <button onclick="resetMasterSaveBar()" style="font-size:13px;font-weight:700;color:#6b7280;background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer">元に戻す</button>
+        <button onclick="bulkSaveMaster()" id="master-save-btn" style="font-size:13px;font-weight:700;color:white;background:#7c3aed;border:none;border-radius:8px;padding:8px 20px;cursor:pointer">保存する</button>
     </div>
 </div>
 
@@ -721,26 +733,42 @@ function renderMasterDay(){
     document.getElementById('master-counter').innerHTML=buildBarChart(dayData, false);
     const list=document.getElementById('master-list');
     if(dayData.length===0){ list.innerHTML='<div class="text-center text-gray-400 text-sm py-4">この曜日の枠はありません</div>'; return; }
-    list.innerHTML=dayData.map(d=>{
+    // コンパクト行形式で描画
+    list.innerHTML = '';
+    dayData.forEach(d => {
         const t=sanitizeTime(d.time), brk=sanitizeTime(d.brk||'');
-        return `<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
-            <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:6px">
-                <div style="flex:1"><div style="font-size:10px;color:#9ca3af;margin-bottom:3px">勤務時間</div>
-                    <input type="text" value="${t}" class="m-time"
-                        style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700;text-align:center;font-family:monospace;box-sizing:border-box" placeholder="9-18"></div>
-                <div style="flex:1"><div style="font-size:10px;color:#9ca3af;margin-bottom:3px">休憩</div>
-                    <input type="text" value="${brk}" class="m-brk"
-                        style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700;text-align:center;font-family:monospace;box-sizing:border-box" placeholder="12:00-13:00"></div>
+        const row=document.createElement('div');
+        row.className='master-row';
+        row.dataset.masterRow=d.row;
+        row.dataset.origTime=t;
+        row.dataset.origBrk=brk;
+        row.dataset.origName=d.name;
+        row.style.cssText='background:white;border-radius:10px;border:1.5px solid #e5e7eb;padding:8px 10px;';
+        row.innerHTML=`
+            <div style="display:flex;align-items:center;gap:6px">
+                <div style="width:6px;height:6px;border-radius:50%;background:#a78bfa;flex-shrink:0"></div>
+                <input type="text" value="${t}" class="m-time"
+                    style="width:88px;min-width:88px;font-size:14px;color:#1e293b;padding:3px 4px;border-radius:4px;font-family:monospace;font-weight:700"
+                    placeholder="9-18">
+                <input type="text" value="${d.name}" class="m-name"
+                    style="flex:1;font-size:14px;color:#1e293b;padding:3px 4px;border-radius:4px;font-weight:700;min-width:0"
+                    placeholder="名前">
+                <button onclick="toggleMasterBrk(this)" title="休憩"
+                    style="font-size:11px;color:#94a3b8;background:none;border:none;padding:2px 4px;cursor:pointer;flex-shrink:0">
+                    休憩${brk?'▲':'▼'}
+                </button>
             </div>
-            <div style="display:flex;gap:6px;align-items:flex-end">
-                <div style="flex:1"><div style="font-size:10px;color:#9ca3af;margin-bottom:3px">名前</div>
-                    <input type="text" value="${d.name}" class="m-name"
-                        style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:700;box-sizing:border-box"></div>
-                <button onclick="updateMaster('${d.row}',this)"
-                    style="background:#374151;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">保存</button>
-            </div>
-        </div>`;
-    }).join('');
+            <div class="m-brk-row" style="display:${brk?'flex':'none'};align-items:center;gap:6px;margin-top:5px;padding-left:12px">
+                <span style="font-size:10px;color:#94a3b8;flex-shrink:0">休憩</span>
+                <input type="text" value="${brk}" class="m-brk"
+                    style="width:110px;font-size:13px;color:#64748b;padding:3px 4px;border-radius:4px;font-family:monospace;font-weight:600"
+                    placeholder="12:00-13:00">
+            </div>`;
+        row.querySelectorAll('input').forEach(inp=>{
+            inp.addEventListener('input', ()=>onMasterFieldChange(row));
+        });
+        list.appendChild(row);
+    });
 }
 async function addMasterSlotCurrent(){
     const day=DAYS[masterDayIndex];
@@ -750,20 +778,70 @@ async function addMasterSlotCurrent(){
     clearCache(CACHE_MASTER_KEY);
     const res=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'addMaster',day,time,brk,name,pass:savedAdminPass})});
     if(await res.text()==='auth_error'){alert('セッション切れです。再読み込みしてください。');location.reload();return;}
+    clearCache(CACHE_MASTER_KEY);
     await loadMaster();
 }
-async function updateMaster(row,btn){
-    const card=btn.closest('.bg-white.rounded-xl');
-    const time=card.querySelector('.m-time').value, brk=card.querySelector('.m-brk').value, name=card.querySelector('.m-name').value;
-    const orig=btn.innerText; btn.innerText='⏳'; btn.disabled=true;
-    clearCache(CACHE_MASTER_KEY);
-    const res=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'directMaster',row,time,brk,name,pass:savedAdminPass})});
-    if(await res.text()==='auth_error'){alert('セッション切れです。再読み込みしてください。');location.reload();return;}
-    const idx=allMasterData.findIndex(d=>String(d.row)===String(row));
-    if(idx>=0){allMasterData[idx].time=time;allMasterData[idx].brk=brk;allMasterData[idx].name=name;}
-    saveCache(CACHE_MASTER_KEY,allMasterData);
-    btn.innerText='完了!'; btn.style.background='#16a34a';
-    setTimeout(()=>{btn.innerText=orig;btn.style.background='#374151';btn.disabled=false;},1500);
+function toggleMasterBrk(btn){
+    const row=btn.closest('.master-row').querySelector('.m-brk-row');
+    const open=row.style.display==='flex';
+    row.style.display=open?'none':'flex';
+    btn.textContent='休憩'+(open?'▼':'▲');
+}
+function onMasterFieldChange(row){
+    const curTime=row.querySelector('.m-time').value.trim();
+    const curBrk =row.querySelector('.m-brk').value.trim();
+    const curName=row.querySelector('.m-name').value.trim();
+    const dirty=curTime!==row.dataset.origTime||curBrk!==row.dataset.origBrk||curName!==row.dataset.origName;
+    row.classList.toggle('dirty',dirty);
+    updateMasterSaveBar();
+}
+function updateMasterSaveBar(){
+    const anyDirty=document.querySelectorAll('#master-list .master-row.dirty').length>0;
+    document.getElementById('master-save-bar').style.display=anyDirty?'flex':'none';
+}
+function resetMasterSaveBar(){
+    document.querySelectorAll('#master-list .master-row.dirty').forEach(row=>{
+        row.classList.remove('dirty');
+        row.querySelector('.m-time').value=row.dataset.origTime;
+        row.querySelector('.m-brk').value=row.dataset.origBrk;
+        row.querySelector('.m-name').value=row.dataset.origName;
+        // brkの表示状態も元に戻す
+        const brkRow=row.querySelector('.m-brk-row');
+        const brkBtn=row.querySelector('button[onclick*="toggleMasterBrk"]');
+        const hasBrk=!!row.dataset.origBrk;
+        if(brkRow) brkRow.style.display=hasBrk?'flex':'none';
+        if(brkBtn) brkBtn.textContent='休憩'+(hasBrk?'▲':'▼');
+    });
+    document.getElementById('master-save-bar').style.display='none';
+}
+async function bulkSaveMaster(){
+    const btn=document.getElementById('master-save-btn');
+    btn.innerText='保存中...'; btn.disabled=true;
+    const items=[];
+    document.querySelectorAll('#master-list .master-row.dirty').forEach(row=>{
+        items.push({
+            row:  row.dataset.masterRow,
+            time: row.querySelector('.m-time').value.trim(),
+            brk:  row.querySelector('.m-brk').value.trim(),
+            name: row.querySelector('.m-name').value.trim()
+        });
+    });
+    if(items.length===0){resetMasterSaveBar();btn.innerText='保存する';btn.disabled=false;return;}
+    try{
+        clearCache(CACHE_MASTER_KEY);
+        await Promise.all(items.map(item=>
+            fetch(GAS_URL,{method:'POST',body:JSON.stringify({type:'directMaster',row:item.row,time:item.time,brk:item.brk,name:item.name,pass:savedAdminPass})})
+        ));
+        // ローカルキャッシュ更新
+        items.forEach(item=>{
+            const idx=allMasterData.findIndex(d=>String(d.row)===String(item.row));
+            if(idx>=0){allMasterData[idx].time=item.time;allMasterData[idx].brk=item.brk;allMasterData[idx].name=item.name;}
+        });
+        saveCache(CACHE_MASTER_KEY,allMasterData);
+        resetMasterSaveBar();
+        await loadMaster();
+    }catch(e){alert('保存エラー');}
+    finally{btn.innerText='保存する';btn.disabled=false;}
 }
 
 loadToday();
